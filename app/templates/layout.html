@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+{% include 'header.html' %}
+
+<body class="with-welcome-text">
+  <div class="container-scroller">
+    {% include 'navbar.html' %}
+    <div class="container-fluid page-body-wrapper">
+      {% include 'setting_panel.html' %}
+      {% include 'sidebar.html' %}
+      <div class="main-panel">
+        <div class="content-wrapper">
+          <div class="row">
+            <div class="col-sm-12">
+              {% block content %}{% endblock %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'script.html' %}
+</body>
+
+</html>

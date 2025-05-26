@@ -1,0 +1,292 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-cogs"></i> Ekstraksi Fitur GLCM
+    </h2>
+    <a href="{{ url_for('glcm.index') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Kembali
+    </a>
+  </div>
+
+  {% if dataset_list %}
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        <strong>Informasi:</strong> Terdapat {{ dataset_list|length }} gambar yang belum diekstraksi fitur GLCM-nya.
+        Pilih gambar yang ingin diekstraksi atau ekstraksi semua sekaligus.
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-light">
+        <div class="card-body text-center">
+          <h5 class="card-title">
+            <i class="fas fa-images"></i> {{ dataset_list|length }}
+          </h5>
+          <p class="card-text">Gambar Tersedia</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-list-check"></i> Pilih Gambar untuk Ekstraksi
+      </h5>
+    </div>
+    <div class="card-body">
+      <!-- Form untuk ekstraksi terpilih -->
+      <form method="POST" action="{{ url_for('glcm.proses_ekstraksi') }}" id="ekstraksiForm">
+        <div class="mb-3">
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary" onclick="selectAll()">
+              <i class="fas fa-check-square"></i> Pilih Semua
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="deselectAll()">
+              <i class="fas fa-square"></i> Hapus Pilihan
+            </button>
+            <button type="submit" class="btn btn-success" id="btnEkstraksi" disabled>
+              <i class="fas fa-play"></i> Ekstraksi Terpilih
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+              <tr>
+                <th width="50">
+                  <input type="checkbox" id="selectAllCheckbox" onchange="toggleAll()" 
+                         class="form-check-input">
+                </th>
+                <th width="100">Gambar</th>
+                <th>Nama File</th>
+                <th>Kategori</th>
+                <th>Tanggal Upload</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dataset in dataset_list %}
+              <tr>
+                <td>
+                  <input type="checkbox" name="selected_images" value="{{ dataset.id_gambar }}" 
+                         class="form-check-input image-checkbox" onchange="updateSubmitButton()">
+                </td>
+                <td>
+                  <img src="{{ '/' ~ dataset.path_file }}" alt="{{ dataset.nama_file }}" 
+                       width="80" height="80" class="img-thumbnail cursor-pointer"
+                       data-image-src="{{ '/' ~ dataset.path_file }}" 
+                       data-image-name="{{ dataset.nama_file }}"
+                       onclick="openImageModal(this)">
+                </td>
+                <td>
+                  <strong>{{ dataset.nama_file }}</strong>
+                  <br>
+                  <small class="text-muted">ID: {{ dataset.id_gambar }}</small>
+                </td>
+                <td>
+                  <span class="badge bg-secondary">
+                    {{ dataset.kategori.nama_kategori if dataset.kategori else 'Tidak Ada Kategori' }}
+                  </span>
+                </td>
+                <td>
+                  <small>{{ dataset.tanggal_upload.strftime('%d-%m-%Y') }}</small>
+                  <br>
+                  <small class="text-muted">{{ dataset.tanggal_upload.strftime('%H:%M') }}</small>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+
+      <!-- Form terpisah untuk ekstraksi semua -->
+      <div class="mt-3">
+        <form method="POST" action="{{ url_for('glcm.ekstraksi_semua') }}" style="display: inline;">
+          <button type="submit" class="btn btn-warning" 
+                  onclick="return confirm('Ekstraksi semua {{ dataset_list|length }} gambar? Proses ini mungkin membutuhkan waktu.')">
+            <i class="fas fa-rocket"></i> Ekstraksi Semua ({{ dataset_list|length }} gambar)
+          </button>
+        </form>
+        <small class="text-muted d-block mt-1">
+          Ekstraksi semua akan memproses semua gambar secara otomatis tanpa pilihan manual.
+        </small>
+      </div>
+
+      <div class="mt-3">
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <strong>Perhatian:</strong> Proses ekstraksi GLCM membutuhkan waktu tergantung jumlah gambar. 
+          Pastikan koneksi internet stabil selama proses berlangsung.
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+      <h4 class="text-success">Semua Gambar Sudah Diekstraksi!</h4>
+      <p class="text-muted">Tidak ada gambar yang belum diekstraksi fitur GLCM-nya.</p>
+      <div class="mt-4">
+        <a href="{{ url_for('glcm.index') }}" class="btn btn-primary">
+          <i class="fas fa-table"></i> Lihat Data Fitur
+        </a>
+        <a href="{{ url_for('dataset.index') }}" class="btn btn-secondary">
+          <i class="fas fa-images"></i> Kelola Dataset
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal untuk menampilkan gambar -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageModalLabel">
+          <i class="fas fa-image"></i> Preview Gambar
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="modalImage" src="" alt="" class="img-fluid rounded">
+        <p id="modalImageName" class="mt-3 text-muted"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+  transition: all 0.3s ease;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+.btn-group .btn {
+  border-radius: 0.375rem;
+  margin-right: 0.25rem;
+}
+
+.form-check-input:checked {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+</style>
+
+<script>
+function toggleAll() {
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  const checkboxes = document.querySelectorAll('.image-checkbox');
+  
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = selectAllCheckbox.checked;
+  });
+  
+  updateSubmitButton();
+}
+
+function selectAll() {
+  const checkboxes = document.querySelectorAll('.image-checkbox');
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = true;
+  });
+  selectAllCheckbox.checked = true;
+  updateSubmitButton();
+}
+
+function deselectAll() {
+  const checkboxes = document.querySelectorAll('.image-checkbox');
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = false;
+  });
+  selectAllCheckbox.checked = false;
+  updateSubmitButton();
+}
+
+function updateSubmitButton() {
+  const checkboxes = document.querySelectorAll('.image-checkbox:checked');
+  const submitBtn = document.getElementById('btnEkstraksi');
+  
+  if (checkboxes.length > 0) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<i class="fas fa-play"></i> Ekstraksi ${checkboxes.length} Gambar`;
+  } else {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<i class="fas fa-play"></i> Ekstraksi Terpilih`;
+  }
+  
+  // Update select all checkbox state
+  const allCheckboxes = document.querySelectorAll('.image-checkbox');
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  
+  if (checkboxes.length === allCheckboxes.length) {
+    selectAllCheckbox.checked = true;
+    selectAllCheckbox.indeterminate = false;
+  } else if (checkboxes.length > 0) {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = true;
+  } else {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = false;
+  }
+}
+
+function openImageModal(element) {
+  const imageSrc = element.getAttribute('data-image-src');
+  const imageName = element.getAttribute('data-image-name');
+  
+  document.getElementById('modalImage').src = imageSrc;
+  document.getElementById('modalImageName').textContent = imageName;
+  
+  var imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+  imageModal.show();
+}
+
+// Form validation
+document.getElementById('ekstraksiForm').addEventListener('submit', function(e) {
+  const checkboxes = document.querySelectorAll('.image-checkbox:checked');
+  
+  if (checkboxes.length === 0) {
+    e.preventDefault();
+    alert('Pilih minimal satu gambar untuk diekstraksi!');
+    return false;
+  }
+  
+  // Show loading indicator
+  const submitBtn = document.getElementById('btnEkstraksi');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+  
+  return true;
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  updateSubmitButton();
+});
+</script>
+{% endblock %}

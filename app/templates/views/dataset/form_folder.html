@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Upload Folder Gambar Dataset</h2>
+
+  <form method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+      <label for="id_kategori" class="form-label">Pilih Kategori</label>
+      <select name="id_kategori" id="id_kategori" class="form-control" required>
+        {% for k in kategori_list %}
+        <option value="{{ k.id_kategori }}">{{ k.nama_kategori }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label for="folder" class="form-label">Pilih Banyak Gambar</label>
+      <input type="file" name="folder[]" multiple class="form-control" accept="image/*" required>
+    </div>
+
+    <button type="submit" class="btn btn-success">Upload Gambar</button>
+    <a href="{{ url_for('dataset.index') }}" class="btn btn-secondary">Kembali</a>
+  </form>
+</div>
+{% endblock %}

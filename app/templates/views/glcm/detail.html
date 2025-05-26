@@ -1,0 +1,505 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-chart-line"></i> Detail Fitur GLCM
+    </h2>
+    <a href="{{ url_for('glcm.index') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Kembali
+    </a>
+  </div>
+
+  <div class="row">
+    <!-- Informasi Gambar -->
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-image"></i> Informasi Gambar
+          </h5>
+        </div>
+        <div class="card-body text-center">
+          <div class="mb-3">
+            <img src="{{ '/' ~ data_citra[1].path_file }}" alt="{{ data_citra[1].nama_file }}" 
+                 class="img-fluid rounded shadow" style="max-height: 300px; max-width: 100%;">
+          </div>
+          
+          <div class="row text-start">
+            <div class="col-12">
+              <table class="table table-borderless">
+                <tr>
+                  <td class="fw-bold"><i class="fas fa-file"></i> Nama File:</td>
+                  <td>{{ data_citra[1].nama_file }}</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold"><i class="fas fa-tag"></i> Kategori:</td>
+                  <td>
+                    <span class="badge bg-secondary fs-6">
+                      {{ data_citra[1].kategori.nama_kategori if data_citra[1].kategori else 'Tidak Ada Kategori' }}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="fw-bold"><i class="fas fa-calendar"></i> Upload:</td>
+                  <td>{{ data_citra[1].tanggal_upload.strftime('%d %B %Y, %H:%M') }}</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold"><i class="fas fa-hashtag"></i> ID Gambar:</td>
+                  <td><code>{{ data_citra[1].id_gambar }}</code></td>
+                </tr>
+                <tr>
+                  <td class="fw-bold"><i class="fas fa-folder"></i> Path:</td>
+                  <td><code class="text-break">{{ data_citra[1].path_file }}</code></td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fitur GLCM -->
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-calculator"></i> Fitur GLCM
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <!-- Contrast -->
+            <div class="col-md-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="text-muted mb-1">Contrast</h6>
+                    <h4 class="mb-0 text-primary">{{ "%.6f"|format(data_citra[0].contrast) }}</h4>
+                  </div>
+                  <i class="fas fa-adjust fa-2x text-muted"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dissimilarity -->
+            <div class="col-md-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="text-muted mb-1">Dissimilarity</h6>
+                    <h4 class="mb-0 text-info">{{ "%.6f"|format(data_citra[0].dissimilarity) }}</h4>
+                  </div>
+                  <i class="fas fa-not-equal fa-2x text-muted"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Homogeneity -->
+            <div class="col-md-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="text-muted mb-1">Homogeneity</h6>
+                    <h4 class="mb-0 text-warning">{{ "%.6f"|format(data_citra[0].homogeneity) }}</h4>
+                  </div>
+                  <i class="fas fa-equals fa-2x text-muted"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Energy -->
+            <div class="col-md-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="text-muted mb-1">Energy</h6>
+                    <h4 class="mb-0 text-danger">{{ "%.6f"|format(data_citra[0].energy) }}</h4>
+                  </div>
+                  <i class="fas fa-bolt fa-2x text-muted"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Correlation -->
+            <div class="col-md-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="text-muted mb-1">Correlation</h6>
+                    <h4 class="mb-0 text-dark">{{ "%.6f"|format(data_citra[0].correlation) }}</h4>
+                  </div>
+                  <i class="fas fa-link fa-2x text-muted"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- ASM -->
+            <div class="col-md-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="text-muted mb-1">ASM</h6>
+                    <h4 class="mb-0 text-secondary">{{ "%.6f"|format(data_citra[0].asm) }}</h4>
+                  </div>
+                  <i class="fas fa-square-root-alt fa-2x text-muted"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 p-3 bg-info bg-opacity-10 rounded">
+            <h6 class="text-info mb-2">
+              <i class="fas fa-info-circle"></i> Informasi Ekstraksi
+            </h6>
+            <small class="text-muted">
+              <strong>Tanggal Ekstraksi:</strong> {{ data_citra[0].tanggal_upload.strftime('%d %B %Y, %H:%M:%S') }}<br>
+              <strong>ID Data Citra:</strong> {{ data_citra[0].id_data_citra }}<br>
+              <strong>Diekstraksi oleh:</strong> User ID {{ data_citra[0].uploaded_by }}
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Teknis GLCM -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-cogs"></i> Detail Teknis GLCM
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="text-primary">Penjelasan Fitur GLCM:</h6>
+              <ul class="list-unstyled">
+                <li class="mb-2">
+                  <strong>Contrast:</strong> Mengukur perbedaan intensitas antara piksel bertetangga. 
+                  Nilai tinggi menunjukkan variasi tinggi.
+                </li>
+                <li class="mb-2">
+                  <strong>Dissimilarity:</strong> Mengukur ketidaksamaan antara piksel bertetangga. 
+                  Mirip dengan contrast namun linear.
+                </li>
+                <li class="mb-2">
+                  <strong>Homogeneity:</strong> Mengukur keseragaman tekstur. 
+                  Nilai tinggi menunjukkan tekstur yang halus.
+                </li>
+                <li class="mb-2">
+                  <strong>Energy:</strong> Mengukur keseragaman distribusi intensitas. 
+                  Nilai tinggi untuk tekstur seragam.
+                </li>
+                <li class="mb-2">
+                  <strong>Correlation:</strong> Mengukur korelasi linear antara piksel bertetangga.
+                </li>
+                <li class="mb-2">
+                  <strong>ASM (Angular Second Moment):</strong> Kuadrat dari energy, 
+                  mengukur keseragaman tekstur.
+                </li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-primary">Parameter Ekstraksi:</h6>
+              <table class="table table-sm table-bordered">
+                <tr>
+                  <td class="fw-bold">Distance:</td>
+                  <td>1 pixel</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold">Angles:</td>
+                  <td>0°, 45°, 90°, 135°</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold">Gray Levels:</td>
+                  <td>256</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold">Symmetric:</td>
+                  <td>True</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold">Normalized:</td>
+                  <td>True</td>
+                </tr>
+                <tr>
+                  <td class="fw-bold">Image Size:</td>
+                  <td>256x256 pixels</td>
+                </tr>
+              </table>
+              
+              <h6 class="text-primary mt-4">Statistik Fitur:</h6>
+              <div class="row text-center">
+                <div class="col-6">
+                  <div class="p-2 bg-light rounded">
+                    <small class="text-muted">Nilai Tertinggi</small>
+                    <br>
+                    <strong>
+                      {% set max_val = [data_citra[0].contrast, data_citra[0].dissimilarity, data_citra[0].homogeneity, data_citra[0].energy, data_citra[0].correlation, data_citra[0].asm] | max %}
+                      {{ "%.6f"|format(max_val) }}
+                    </strong>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="p-2 bg-light rounded">
+                    <small class="text-muted">Nilai Terendah</small>
+                    <br>
+                    <strong>
+                      {% set min_val = [data_citra[0].contrast, data_citra[0].dissimilarity, data_citra[0].homogeneity, data_citra[0].energy, data_citra[0].correlation, data_citra[0].asm] | min %}
+                      {{ "%.6f"|format(min_val) }}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visualisasi Fitur GLCM -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-bar"></i> Visualisasi Fitur GLCM
+          </h5>
+        </div>
+        <div class="card-body">
+          <canvas id="glcmChart" width="400" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body text-center">
+          <h6 class="text-muted mb-3">Aksi untuk Data Ini</h6>
+          <div class="btn-group" role="group">
+            <a href="{{ url_for('glcm.index') }}" class="btn btn-outline-secondary">
+              <i class="fas fa-list"></i> Daftar Data GLCM
+            </a>
+            <a href="{{ url_for('glcm.export_csv') }}" class="btn btn-outline-success">
+              <i class="fas fa-download"></i> Export Semua ke CSV
+            </a>
+            <button type="button" class="btn btn-outline-info" onclick="copyFeatures()">
+              <i class="fas fa-copy"></i> Copy Fitur ke Clipboard
+            </button>
+            <a href="{{ url_for('glcm.hapus', id=data_citra[0].id_data_citra) }}" 
+               class="btn btn-outline-danger"
+               onclick="return confirm('Yakin ingin menghapus data fitur GLCM ini? Data yang dihapus tidak dapat dikembalikan.')">
+              <i class="fas fa-trash"></i> Hapus Data Ini
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.feature-item {
+  transition: all 0.3s ease;
+  border: 1px solid #e9ecef;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+}
+
+.card-header {
+  border-bottom: none;
+}
+
+.btn-group .btn {
+  margin: 0 0.25rem;
+}
+
+code {
+  font-size: 0.875rem;
+  background-color: #f8f9fa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.bg-opacity-10 {
+  --bs-bg-opacity: 0.1;
+}
+
+@media (max-width: 768px) {
+  .feature-item h4 {
+    font-size: 1.1rem;
+  }
+  
+  .feature-item h6 {
+    font-size: 0.875rem;
+  }
+  
+  .btn-group {
+    flex-direction: column;
+  }
+  
+  .btn-group .btn {
+    margin: 0.25rem 0;
+  }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize Chart.js
+  const ctx = document.getElementById('glcmChart').getContext('2d');
+  
+  const glcmData = {
+    labels: ['Contrast', 'Dissimilarity', 'Homogeneity', 'Energy', 'Correlation', 'ASM'],
+    datasets: [{
+      label: 'Nilai Fitur GLCM',
+      data: [
+        {{ data_citra[0].contrast }},
+        {{ data_citra[0].dissimilarity }},
+        {{ data_citra[0].homogeneity }},
+        {{ data_citra[0].energy }},
+        {{ data_citra[0].correlation }},
+        {{ data_citra[0].asm }}
+      ],
+      backgroundColor: [
+        'rgba(54, 162, 235, 0.6)',
+        'rgba(255, 99, 132, 0.6)',
+        'rgba(255, 206, 86, 0.6)',
+        'rgba(75, 192, 192, 0.6)',
+        'rgba(153, 102, 255, 0.6)',
+        'rgba(255, 159, 64, 0.6)'
+      ],
+      borderColor: [
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(255, 206, 86, 1)',
+        'rgba(75, 192, 192, 1)',
+        'rgba(153, 102, 255, 1)',
+        'rgba(255, 159, 64, 1)'
+      ],
+      borderWidth: 2
+    }]
+  };
+
+  const config = {
+    type: 'bar',
+    data: glcmData,
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Distribusi Fitur GLCM'
+        },
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Nilai Fitur'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Jenis Fitur'
+          }
+        }
+      }
+    }
+  };
+
+  new Chart(ctx, config);
+
+  // Initialize tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+
+  // Add hover effects to feature items
+  const featureItems = document.querySelectorAll('.feature-item');
+  featureItems.forEach(item => {
+    item.addEventListener('mouseenter', function() {
+      this.style.transform = 'translateY(-2px)';
+      this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+    });
+    
+    item.addEventListener('mouseleave', function() {
+      this.style.transform = 'translateY(0)';
+      this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    });
+  });
+
+  // Smooth scroll animation for cards
+  const cards = document.querySelectorAll('.card');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  });
+
+  cards.forEach(card => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    observer.observe(card);
+  });
+});
+
+function copyFeatures() {
+  const features = {
+    'contrast': {{ data_citra[0].contrast }},
+    'dissimilarity': {{ data_citra[0].dissimilarity }},
+    'homogeneity': {{ data_citra[0].homogeneity }},
+    'energy': {{ data_citra[0].energy }},
+    'correlation': {{ data_citra[0].correlation }},
+    'asm': {{ data_citra[0].asm }}
+  };
+  
+  const text = Object.entries(features)
+    .map(([key, value]) => `${key}: ${value.toFixed(6)}`)
+    .join('\n');
+  
+  navigator.clipboard.writeText(text).then(function() {
+    // Show success message
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Disalin!';
+    btn.classList.remove('btn-outline-info');
+    btn.classList.add('btn-success');
+    
+    setTimeout(function() {
+      btn.innerHTML = originalText;
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-outline-info');
+    }, 2000);
+  }).catch(function(err) {
+    alert('Gagal menyalin ke clipboard');
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,419 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-split"></i> Data Split GLCM
+    </h2>
+    <div>
+      <a href="{{ url_for('split.create') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Split Data Baru
+      </a>
+      {% if split_data_list %}
+      <div class="btn-group ms-2" role="group">
+        <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="fas fa-download"></i> Export
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" href="{{ url_for('split.export_csv', jenis='all') }}">Export Semua</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('split.export_csv', jenis='train') }}">Export Train</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('split.export_csv', jenis='test') }}">Export Test</a></li>
+        </ul>
+      </div>
+      <button type="button" class="btn btn-outline-danger ms-2" onclick="resetSplitData()">
+        <i class="fas fa-redo"></i> Reset Split
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title">Total Split</h6>
+              <h3 class="mb-0">{{ stats.total_split }}</h3>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-database fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title">Data Train</h6>
+              <h3 class="mb-0">{{ stats.total_train }}</h3>
+              <small>{{ "%.1f"|format((stats.total_train / stats.total_split * 100) if stats.total_split > 0 else 0) }}%</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-graduation-cap fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title">Data Test</h6>
+              <h3 class="mb-0">{{ stats.total_test }}</h3>
+              <small>{{ "%.1f"|format((stats.total_test / stats.total_split * 100) if stats.total_split > 0 else 0) }}%</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-vial fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title">Belum Split</h6>
+              <h3 class="mb-0">{{ stats.total_unsplit }}</h3>
+              <small>dari {{ stats.total_glcm }} data GLCM</small>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-hourglass-half fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if split_data_list %}
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-filter"></i> Filter & Sorting
+      </h5>
+    </div>
+    <div class="card-body">
+      <form method="GET" id="filterForm">
+        <div class="row">
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Kategori</label>
+            <select name="kategori" class="form-select" onchange="submitFilter()">
+              <option value="">Semua Kategori</option>
+              {% for kategori in kategori_list %}
+              <option value="{{ kategori.id_kategori }}" 
+                      {{ 'selected' if current_filters.kategori == kategori.id_kategori|string }}>
+                {{ kategori.nama_kategori }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Jenis Split</label>
+            <select name="jenis" class="form-select" onchange="submitFilter()">
+              <option value="">Semua Jenis</option>
+              <option value="train" {{ 'selected' if current_filters.jenis == 'train' }}>Train</option>
+              <option value="test" {{ 'selected' if current_filters.jenis == 'test' }}>Test</option>
+            </select>
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Urutkan Berdasarkan</label>
+            <select name="sort" class="form-select" onchange="submitFilter()">
+              <option value="tanggal_split" {{ 'selected' if current_filters.sort == 'tanggal_split' }}>Tanggal Split</option>
+              <option value="kategori" {{ 'selected' if current_filters.sort == 'kategori' }}>Kategori</option>
+              <option value="jenis_split" {{ 'selected' if current_filters.sort == 'jenis_split' }}>Jenis Split</option>
+              <option value="nama_file" {{ 'selected' if current_filters.sort == 'nama_file' }}>Nama File</option>
+            </select>
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Urutan</label>
+            <select name="order" class="form-select" onchange="submitFilter()">
+              <option value="desc" {{ 'selected' if current_filters.order == 'desc' }}>Terbaru</option>
+              <option value="asc" {{ 'selected' if current_filters.order == 'asc' }}>Terlama</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Data per Halaman</label>
+            <select name="per_page" class="form-select" onchange="submitFilter()">
+              <option value="5" {{ 'selected' if current_filters.per_page == 5 }}>5</option>
+              <option value="10" {{ 'selected' if current_filters.per_page == 10 }}>10</option>
+              <option value="25" {{ 'selected' if current_filters.per_page == 25 }}>25</option>
+              <option value="50" {{ 'selected' if current_filters.per_page == 50 }}>50</option>
+              <option value="100" {{ 'selected' if current_filters.per_page == 100 }}>100</option>
+            </select>
+          </div>
+          <div class="col-md-9 mb-3 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-secondary" onclick="resetFilter()">
+              <i class="fas fa-times"></i> Reset Filter
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if split_data_list %}
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-table"></i> Data Split 
+        <span class="badge bg-primary ms-2">
+          {{ pagination.total }} Total
+        </span>
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-hover">
+          <thead class="table-dark">
+            <tr>
+              <th width="50">No</th>
+              <th width="80">Gambar</th>
+              <th>Nama File</th>
+              <th>Kategori</th>
+              <th width="100">Jenis Split</th>
+              <th>Fitur GLCM</th>
+              <th>Tanggal Split</th>
+              <th width="120">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for split_data, data_citra, dataset, kategori in split_data_list %}
+            <tr>
+              <td>{{ ((pagination.page - 1) * pagination.per_page) + loop.index }}</td>
+              <td>
+                <img src="{{ '/' ~ dataset.path_file }}" alt="{{ dataset.nama_file }}" 
+                     width="60" height="60" class="img-thumbnail cursor-pointer"
+                     data-image-src="{{ '/' ~ dataset.path_file }}" 
+                     data-image-name="{{ dataset.nama_file }}"
+                     onclick="openImageModal(this)">
+              </td>
+              <td>
+                <strong>{{ dataset.nama_file }}</strong>
+                <br>
+                <small class="text-muted">ID: {{ dataset.id_gambar }}</small>
+              </td>
+              <td>
+                <span class="badge bg-secondary">{{ kategori.nama_kategori }}</span>
+              </td>
+              <td>
+                {% if split_data.jenis_split == 'train' %}
+                <span class="badge bg-success">
+                  <i class="fas fa-graduation-cap"></i> Train
+                </span>
+                {% else %}
+                <span class="badge bg-warning text-dark">
+                  <i class="fas fa-vial"></i> Test
+                </span>
+                {% endif %}
+              </td>
+              <td>
+                <small class="text-monospace">
+                  C: {{ "%.3f"|format(data_citra.contrast) }}<br>
+                  D: {{ "%.3f"|format(data_citra.dissimilarity) }}<br>
+                  H: {{ "%.3f"|format(data_citra.homogeneity) }}
+                </small>
+              </td>
+              <td>
+                <small>{{ split_data.tanggal_split.strftime('%d-%m-%Y') }}</small>
+                <br>
+                <small class="text-muted">{{ split_data.tanggal_split.strftime('%H:%M') }}</small>
+              </td>
+              <td>
+                <a href="{{ url_for('split.detail', id=split_data.id_split) }}" 
+                   class="btn btn-info btn-sm" title="Detail">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="{{ url_for('split.hapus', id=split_data.id_split) }}" 
+                   class="btn btn-danger btn-sm" title="Hapus"
+                   onclick="return confirm('Yakin ingin menghapus data split ini?')">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if pagination.total_pages > 1 %}
+      <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+          {% if pagination.has_prev %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('split.index', page=pagination.prev_num, 
+                per_page=current_filters.per_page, kategori=current_filters.kategori, 
+                jenis=current_filters.jenis, sort=current_filters.sort, order=current_filters.order) }}">
+              <i class="fas fa-chevron-left"></i>
+            </a>
+          </li>
+          {% else %}
+          <li class="page-item disabled">
+            <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+          </li>
+          {% endif %}
+
+          {% for page_num in range(1, pagination.total_pages + 1) %}
+            {% if page_num == pagination.page %}
+            <li class="page-item active">
+              <span class="page-link">{{ page_num }}</span>
+            </li>
+            {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('split.index', page=page_num, 
+                  per_page=current_filters.per_page, kategori=current_filters.kategori, 
+                  jenis=current_filters.jenis, sort=current_filters.sort, order=current_filters.order) }}">
+                {{ page_num }}
+              </a>
+            </li>
+            {% elif page_num == 4 and pagination.page > 5 %}
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+            {% elif page_num == pagination.total_pages - 3 and pagination.page < pagination.total_pages - 4 %}
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>
+            {% endif %}
+          {% endfor %}
+
+          {% if pagination.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('split.index', page=pagination.next_num, 
+                per_page=current_filters.per_page, kategori=current_filters.kategori, 
+                jenis=current_filters.jenis, sort=current_filters.sort, order=current_filters.order) }}">
+              <i class="fas fa-chevron-right"></i>
+            </a>
+          </li>
+          {% else %}
+          <li class="page-item disabled">
+            <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+
+      <div class="text-center text-muted">
+        Menampilkan {{ ((pagination.page - 1) * pagination.per_page) + 1 }} - 
+        {{ ((pagination.page - 1) * pagination.per_page) + split_data_list|length }} 
+        dari {{ pagination.total }} data
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+      <h4 class="text-muted">Belum Ada Data Split</h4>
+      <p class="text-muted">Mulai split data GLCM Anda untuk proses machine learning.</p>
+      <a href="{{ url_for('split.create') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Split Data Sekarang
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageModalLabel">
+          <i class="fas fa-image"></i> Preview Gambar
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="modalImage" src="" alt="" class="img-fluid rounded">
+        <p id="modalImageName" class="mt-3 text-muted"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.cursor-pointer {
+  cursor: pointer;
+}
+.cursor-pointer:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+  transition: all 0.3s ease;
+}
+.table td {
+  vertical-align: middle;
+}
+.text-monospace {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+}
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+}
+.badge {
+  font-size: 0.75rem;
+}
+.pagination .page-link {
+  color: #6c757d;
+}
+.pagination .page-item.active .page-link {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+</style>
+
+<script>
+function openImageModal(element) {
+  const imageSrc = element.getAttribute('data-image-src');
+  const imageName = element.getAttribute('data-image-name');
+  
+  document.getElementById('modalImage').src = imageSrc;
+  document.getElementById('modalImageName').textContent = imageName;
+  
+  var imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+  imageModal.show();
+}
+
+function submitFilter() {
+  document.getElementById('filterForm').submit();
+}
+
+function resetFilter() {
+  window.location.href = '{{ url_for("split.index") }}';
+}
+
+function resetSplitData() {
+  if (confirm('Yakin ingin reset semua data split? Tindakan ini tidak dapat dibatalkan.')) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("split.reset") }}';
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tooltips = document.querySelectorAll('[title]');
+  tooltips.forEach(function(element) {
+    new bootstrap.Tooltip(element);
+  });
+});
+</script>
+{% endblock %}

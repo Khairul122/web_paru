@@ -1,0 +1,171 @@
+{% extends "layout.html" %} {% block content %}
+<div class="container mt-4">
+   <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Daftar Dataset Gambar</h2>
+    <a href="{{ url_for('dataset.tambah_folder') }}" class="btn btn-primary">+ Upload Folder Gambar</a>
+  </div>
+
+  {% set dataset_by_category = dataset_list | groupby('kategori.nama_kategori')
+  %} {% for kategori_name, items in dataset_by_category %}
+  <div class="card mb-4">
+    <div class="card-header">
+      <h4 class="mb-0">
+        <button
+          class="btn btn-link text-decoration-none"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#collapse{{ loop.index }}"
+          aria-expanded="true"
+          aria-controls="collapse{{ loop.index }}"
+        >
+          {{ kategori_name if kategori_name else 'Tidak Ada Kategori' }}
+          <span class="badge bg-secondary ms-2"
+            >{{ items | list | length }}</span
+          >
+        </button>
+      </h4>
+    </div>
+    <div id="collapse{{ loop.index }}" class="collapse show">
+      <div class="card-body">
+        <table class="table table-bordered table-striped">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Gambar</th>
+              <th>Nama File</th>
+              <th>Waktu Upload</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in items %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>
+                <img
+                  src="{{ '/' ~ d.path_file }}"
+                  alt="{{ d.nama_file }}"
+                  width="100"
+                  class="img-thumbnail cursor-pointer"
+                  data-image-src="{{ '/' ~ d.path_file }}"
+                  data-image-name="{{ d.nama_file }}"
+                  onclick="openImageModal(this)"
+                />
+              </td>
+              <td>{{ d.nama_file }}</td>
+              <td>{{ d.tanggal_upload.strftime('%d-%m-%Y %H:%M') }}</td>
+              <td>
+                <a
+                  href="{{ url_for('dataset.edit', id=d.id_gambar) }}"
+                  class="btn btn-warning btn-sm"
+                  >Edit</a
+                >
+                <a
+                  href="{{ url_for('dataset.hapus', id=d.id_gambar) }}"
+                  class="btn btn-danger btn-sm"
+                  onclick="return confirm('Yakin ingin menghapus gambar ini?')"
+                  >Hapus</a
+                >
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal untuk menampilkan gambar -->
+<div
+  class="modal fade"
+  id="imageModal"
+  tabindex="-1"
+  aria-labelledby="imageModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageModalLabel">Preview Gambar</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="modalImage" src="" alt="" class="img-fluid" />
+        <p id="modalImageName" class="mt-2 text-muted"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .cursor-pointer {
+    cursor: pointer;
+  }
+
+  .cursor-pointer:hover {
+    opacity: 0.8;
+    transform: scale(1.05);
+    transition: all 0.3s ease;
+  }
+
+  .card-header .btn-link {
+    color: #000;
+    font-weight: bold;
+    width: 100%;
+    text-align: left;
+  }
+
+  .card-header .btn-link:hover {
+    color: #007bff;
+  }
+
+  .card-header .btn-link:focus {
+    box-shadow: none;
+  }
+</style>
+
+<script>
+  function openImageModal(element) {
+    const imageSrc = element.getAttribute("data-image-src");
+    const imageName = element.getAttribute("data-image-name");
+
+    document.getElementById("modalImage").src = imageSrc;
+    document.getElementById("modalImageName").textContent = imageName;
+
+    var imageModal = new bootstrap.Modal(document.getElementById("imageModal"));
+    imageModal.show();
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const collapseButtons = document.querySelectorAll(
+      '[data-bs-toggle="collapse"]'
+    );
+
+    collapseButtons.forEach((button) => {
+      button.addEventListener("click", function () {
+        const target = document.querySelector(
+          this.getAttribute("data-bs-target")
+        );
+        const isExpanded = this.getAttribute("aria-expanded") === "true";
+
+        const icon = this.querySelector(".chevron-icon");
+        if (icon) {
+          icon.classList.toggle("rotate-180");
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}
