@@ -1,0 +1,330 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-chart-bar"></i> Evaluasi Model LDA
+    </h2>
+    <a href="{{ url_for('lda.index') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Kembali
+    </a>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-success text-white">
+        <div class="card-body text-center">
+          <h3>{{ "%.2f"|format(results.accuracy * 100) }}%</h3>
+          <p class="mb-0">Akurasi Model</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-info text-white">
+        <div class="card-body text-center">
+          <h3>{{ results.class_names|length }}</h3>
+          <p class="mb-0">Jumlah Kelas</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-warning text-white">
+        <div class="card-body text-center">
+          <h3>{{ stats.test_count }}</h3>
+          <p class="mb-0">Data Test</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-primary text-white">
+        <div class="card-body text-center">
+          <h3>6</h3>
+          <p class="mb-0">Fitur GLCM</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-table"></i> Classification Report
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="table-dark">
+                <tr>
+                  <th>Kelas</th>
+                  <th>Precision</th>
+                  <th>Recall</th>
+                  <th>F1-Score</th>
+                  <th>Support</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for class_name in results.class_names %}
+                {% set class_metrics = results.classification_report[class_name] %}
+                <tr>
+                  <td><strong>{{ class_name }}</strong></td>
+                  <td>{{ "%.3f"|format(class_metrics.precision) }}</td>
+                  <td>{{ "%.3f"|format(class_metrics.recall) }}</td>
+                  <td>{{ "%.3f"|format(class_metrics['f1-score']) }}</td>
+                  <td>{{ class_metrics.support }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-warning">
+                  <td><strong>Macro Avg</strong></td>
+                  <td>{{ "%.3f"|format(results.classification_report['macro avg'].precision) }}</td>
+                  <td>{{ "%.3f"|format(results.classification_report['macro avg'].recall) }}</td>
+                  <td>{{ "%.3f"|format(results.classification_report['macro avg']['f1-score']) }}</td>
+                  <td>{{ results.classification_report['macro avg'].support }}</td>
+                </tr>
+                <tr class="table-info">
+                  <td><strong>Weighted Avg</strong></td>
+                  <td>{{ "%.3f"|format(results.classification_report['weighted avg'].precision) }}</td>
+                  <td>{{ "%.3f"|format(results.classification_report['weighted avg'].recall) }}</td>
+                  <td>{{ "%.3f"|format(results.classification_report['weighted avg']['f1-score']) }}</td>
+                  <td>{{ results.classification_report['weighted avg'].support }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-th"></i> Confusion Matrix
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered text-center">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="align-middle bg-light">Actual</th>
+                  <th colspan="{{ results.class_names|length }}" class="bg-primary text-white">Predicted</th>
+                </tr>
+                <tr>
+                  {% for class_name in results.class_names %}
+                  <th class="bg-primary text-white">{{ class_name }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for i in range(results.class_names|length) %}
+                <tr>
+                  <th class="bg-light">{{ results.class_names[i] }}</th>
+                  {% for j in range(results.class_names|length) %}
+                  <td class="{{ 'bg-success text-white' if i == j else ('bg-danger text-white' if results.confusion_matrix[i][j] > 0 else '') }}">
+                    {{ results.confusion_matrix[i][j] }}
+                  </td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8 mb-4">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-line"></i> Visualisasi Performa
+          </h5>
+        </div>
+        <div class="card-body">
+          <canvas id="performanceChart" width="400" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4 mb-4">
+      <div class="card">
+        <div class="card-header bg-warning text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-info-circle"></i> Interpretasi Hasil
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <h6>Akurasi: {{ "%.2f"|format(results.accuracy * 100) }}%</h6>
+            {% if results.accuracy >= 0.9 %}
+            <span class="badge bg-success">Sangat Baik</span>
+            <p class="small mt-2">Model memiliki performa yang sangat baik dengan akurasi di atas 90%.</p>
+            {% elif results.accuracy >= 0.8 %}
+            <span class="badge bg-primary">Baik</span>
+            <p class="small mt-2">Model memiliki performa yang baik dengan akurasi di atas 80%.</p>
+            {% elif results.accuracy >= 0.7 %}
+            <span class="badge bg-warning">Cukup</span>
+            <p class="small mt-2">Model memiliki performa yang cukup dengan akurasi di atas 70%.</p>
+            {% else %}
+            <span class="badge bg-danger">Kurang</span>
+            <p class="small mt-2">Model perlu diperbaiki karena akurasi masih rendah.</p>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <h6>Rekomendasi:</h6>
+            <ul class="small">
+              {% if results.accuracy < 0.8 %}
+              <li>Tambah data training</li>
+              <li>Cek kualitas fitur GLCM</li>
+              <li>Evaluasi preprocessing data</li>
+              {% else %}
+              <li>Model sudah cukup baik</li>
+              <li>Bisa digunakan untuk produksi</li>
+              <li>Monitor performa secara berkala</li>
+              {% endif %}
+            </ul>
+          </div>
+
+          <div class="text-center">
+            <a href="{{ url_for('lda.index') }}" class="btn btn-primary btn-sm">
+              <i class="fas fa-list"></i> Lihat Hasil
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header bg-dark text-white">
+      <h5 class="mb-0">
+        <i class="fas fa-cogs"></i> Detail Evaluasi Model
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <h6>Metrik Evaluasi:</h6>
+          <ul>
+            <li><strong>Precision:</strong> Ketepatan prediksi positif</li>
+            <li><strong>Recall:</strong> Kemampuan mendeteksi kelas positif</li>
+            <li><strong>F1-Score:</strong> Harmonic mean precision dan recall</li>
+            <li><strong>Support:</strong> Jumlah sampel per kelas</li>
+          </ul>
+        </div>
+        <div class="col-md-6">
+          <h6>Algoritma LDA:</h6>
+          <ul>
+            <li>Linear Discriminant Analysis</li>
+            <li>Dimensionality reduction dan classification</li>
+            <li>Fitur GLCM sebagai input</li>
+            <li>{{ results.class_names|length }} kelas output</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('performanceChart').getContext('2d');
+  
+  const classNames = {{ results.class_names|tojson }};
+  const precisionData = [];
+  const recallData = [];
+  const f1Data = [];
+  
+  classNames.forEach(className => {
+    const metrics = {{ results.classification_report|tojson }}[className];
+    precisionData.push(metrics.precision);
+    recallData.push(metrics.recall);
+    f1Data.push(metrics['f1-score']);
+  });
+  
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: classNames,
+      datasets: [
+        {
+          label: 'Precision',
+          data: precisionData,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Recall',
+          data: recallData,
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'F1-Score',
+          data: f1Data,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Metrik Evaluasi per Kelas'
+        },
+        legend: {
+          position: 'top'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 1,
+          title: {
+            display: true,
+            text: 'Nilai Metrik'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Kelas'
+          }
+        }
+      }
+    }
+  });
+});
+</script>
+
+<style>
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+}
+
+.table td, .table th {
+  font-size: 0.875rem;
+}
+
+.bg-success.text-white {
+  font-weight: bold;
+}
+
+.bg-danger.text-white {
+  font-weight: bold;
+}
+</style>
+{% endblock %}

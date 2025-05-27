@@ -1,0 +1,247 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-eye text-primary"></i> Detail Prediksi
+    </h2>
+    <div>
+      <a href="{{ url_for('prediksi.index') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Kembali
+      </a>
+      <a href="{{ url_for('prediksi.hapus', id=prediksi.id_prediksi) }}" 
+         class="btn btn-danger"
+         onclick="return confirm('Yakin ingin menghapus prediksi ini?')">
+        <i class="fas fa-trash"></i> Hapus
+      </a>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-image"></i> Gambar X-Ray
+          </h5>
+        </div>
+        <div class="card-body text-center">
+          <img src="{{ '/' ~ prediksi.path_file }}" alt="{{ prediksi.nama_file }}" 
+               class="img-fluid rounded shadow" style="max-height: 400px;">
+          <h6 class="mt-3 text-primary">{{ prediksi.nama_file }}</h6>
+          <p class="text-muted">Ukuran: {{ (prediksi.ukuran_file / 1024) | round(1) }} KB</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-brain"></i> Hasil Prediksi
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="result-item">
+            <h4 class="text-success">
+              <i class="fas fa-diagnoses"></i> {{ prediksi.prediksi_kategori }}
+            </h4>
+            <p class="text-muted">Kategori Penyakit yang Diprediksi</p>
+          </div>
+          
+          <div class="result-item mt-4">
+            <h3 class="text-primary">{{ (prediksi.confidence_score * 100) | round(1) }}%</h3>
+            <p class="text-muted">Confidence Score</p>
+            <div class="progress" style="height: 10px;">
+              <div class="progress-bar bg-success" 
+                   style="width: {{ (prediksi.confidence_score * 100) | round(1) }}%"></div>
+            </div>
+          </div>
+
+          <div class="result-item mt-4">
+            <p class="text-muted">
+              <i class="fas fa-calendar"></i> 
+              Tanggal Prediksi: {{ prediksi.tanggal_prediksi.strftime('%d %B %Y, %H:%M WIB') }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-cogs"></i> Fitur GLCM yang Diekstrak
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="feature-card">
+                <h6 class="feature-title">
+                  <i class="fas fa-adjust"></i> Contrast
+                </h6>
+                <p class="feature-value">{{ "%.6f"|format(prediksi.contrast) }}</p>
+                <small class="text-muted">Variasi intensitas pixel</small>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="feature-card">
+                <h6 class="feature-title">
+                  <i class="fas fa-not-equal"></i> Dissimilarity
+                </h6>
+                <p class="feature-value">{{ "%.6f"|format(prediksi.dissimilarity) }}</p>
+                <small class="text-muted">Ketidaksamaan antar pixel</small>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="feature-card">
+                <h6 class="feature-title">
+                  <i class="fas fa-equals"></i> Homogeneity
+                </h6>
+                <p class="feature-value">{{ "%.6f"|format(prediksi.homogeneity) }}</p>
+                <small class="text-muted">Keseragaman tekstur</small>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="feature-card">
+                <h6 class="feature-title">
+                  <i class="fas fa-bolt"></i> Energy
+                </h6>
+                <p class="feature-value">{{ "%.6f"|format(prediksi.energy) }}</p>
+                <small class="text-muted">Distribusi energi</small>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="feature-card">
+                <h6 class="feature-title">
+                  <i class="fas fa-link"></i> Correlation
+                </h6>
+                <p class="feature-value">{{ "%.6f"|format(prediksi.correlation) }}</p>
+                <small class="text-muted">Korelasi linear</small>
+              </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <div class="feature-card">
+                <h6 class="feature-title">
+                  <i class="fas fa-square"></i> ASM
+                </h6>
+                <p class="feature-value">{{ "%.6f"|format(prediksi.asm) }}</p>
+                <small class="text-muted">Angular Second Moment</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-warning text-dark">
+          <h6 class="mb-0">
+            <i class="fas fa-exclamation-triangle"></i> Disclaimer
+          </h6>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-0">
+            <strong>Penting:</strong> Hasil prediksi ini hanya sebagai referensi dan tidak dapat menggantikan diagnosis medis profesional. 
+            Konsultasikan dengan dokter untuk diagnosis yang akurat dan penanganan yang tepat.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+
+.result-item {
+  text-align: center;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.feature-card {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  background: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.feature-title {
+  color: #495057;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.feature-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0d6efd;
+  margin-bottom: 0.5rem;
+}
+
+.progress {
+  border-radius: 50px;
+}
+
+.btn {
+  border-radius: 8px;
+}
+
+img {
+  border: 3px solid #e9ecef;
+}
+
+@media (max-width: 768px) {
+  .feature-card {
+    margin-bottom: 1rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const featureCards = document.querySelectorAll('.feature-card');
+  
+  featureCards.forEach((card, index) => {
+    setTimeout(() => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(20px)';
+      card.style.transition = 'all 0.5s ease';
+      
+      setTimeout(() => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      }, 100);
+    }, index * 100);
+  });
+});
+</script>
+{% endblock %}

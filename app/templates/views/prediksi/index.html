@@ -1,0 +1,171 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-search text-primary"></i> Prediksi Penyakit Paru
+    </h2>
+    <a href="{{ url_for('prediksi.upload') }}" class="btn btn-primary">
+      <i class="fas fa-upload"></i> Upload Gambar
+    </a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+          <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' if category == 'success' else 'info-circle' }}"></i>
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if prediksi_list.items %}
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-history"></i> Riwayat Prediksi
+        <span class="badge bg-primary ms-2">{{ prediksi_list.total }} Total</span>
+      </h5>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th width="60">No</th>
+              <th width="80">Gambar</th>
+              <th>Nama File</th>
+              <th>Prediksi</th>
+              <th>Confidence</th>
+              <th>Tanggal</th>
+              <th width="120">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for prediksi in prediksi_list.items %}
+            <tr>
+              <td class="text-center">{{ ((prediksi_list.page - 1) * prediksi_list.per_page) + loop.index }}</td>
+              <td>
+                <img src="{{ '/' ~ prediksi.path_file }}" alt="{{ prediksi.nama_file }}" 
+                     class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;"
+                     onclick="openImageModal('{{ '/' ~ prediksi.path_file }}', '{{ prediksi.nama_file }}')">
+              </td>
+              <td>
+                <strong>{{ prediksi.nama_file }}</strong>
+                <br>
+                <small class="text-muted">{{ (prediksi.ukuran_file / 1024) | round(1) }} KB</small>
+              </td>
+              <td>
+                <span class="badge bg-info fs-6">{{ prediksi.prediksi_kategori }}</span>
+              </td>
+              <td>
+                <span class="badge bg-success">{{ (prediksi.confidence_score * 100) | round(1) }}%</span>
+              </td>
+              <td>
+                <small>{{ prediksi.tanggal_prediksi.strftime('%d-%m-%Y %H:%M') }}</small>
+              </td>
+              <td>
+                <div class="btn-group" role="group">
+                  <a href="{{ url_for('prediksi.detail', id=prediksi.id_prediksi) }}" 
+                     class="btn btn-info btn-sm" title="Detail">
+                    <i class="fas fa-eye"></i>
+                  </a>
+                  <a href="{{ url_for('prediksi.hapus', id=prediksi.id_prediksi) }}" 
+                     class="btn btn-danger btn-sm" title="Hapus"
+                     onclick="return confirm('Yakin ingin menghapus prediksi ini?')">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if prediksi_list.pages > 1 %}
+      <div class="card-footer">
+        <nav aria-label="Navigasi halaman">
+          <ul class="pagination pagination-sm mb-0 justify-content-center">
+            {% if prediksi_list.has_prev %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('prediksi.index', page=prediksi_list.prev_num) }}">
+                <i class="fas fa-chevron-left"></i>
+              </a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in prediksi_list.iter_pages() %}
+              {% if page_num %}
+                {% if page_num != prediksi_list.page %}
+                <li class="page-item">
+                  <a class="page-link" href="{{ url_for('prediksi.index', page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item active">
+                  <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% endif %}
+              {% else %}
+              <li class="page-item disabled">
+                <span class="page-link">...</span>
+              </li>
+              {% endif %}
+            {% endfor %}
+            
+            {% if prediksi_list.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('prediksi.index', page=prediksi_list.next_num) }}">
+                <i class="fas fa-chevron-right"></i>
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="fas fa-search fa-4x text-muted mb-3"></i>
+      <h4 class="text-muted">Belum Ada Prediksi</h4>
+      <p class="text-muted mb-4">Upload gambar untuk memulai prediksi penyakit paru menggunakan model LDA</p>
+      <a href="{{ url_for('prediksi.upload') }}" class="btn btn-primary">
+        <i class="fas fa-upload"></i> Upload Gambar Sekarang
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal fade" id="imageModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-image"></i> Preview Gambar
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="modalImage" src="" alt="" class="img-fluid rounded">
+        <p id="modalImageName" class="mt-3 text-primary"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openImageModal(imageSrc, imageName) {
+  document.getElementById('modalImage').src = imageSrc;
+  document.getElementById('modalImageName').textContent = imageName;
+  new bootstrap.Modal(document.getElementById('imageModal')).show();
+}
+</script>
+{% endblock %}

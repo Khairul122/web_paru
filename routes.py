@@ -6,6 +6,7 @@ from app.controllers.DatasetController import dataset_bp
 from app.controllers.GLCMController import glcm_bp
 from app.controllers.SplitDataController import split_bp
 from app.controllers.LDAController import lda_bp
+from app.controllers.PrediksiController import prediksi_bp
 
 def register_routes(app: Flask):
     @app.route('/')
@@ -19,3 +20,4 @@ def register_routes(app: Flask):
     app.register_blueprint(glcm_bp, url_prefix='/glcm')
     app.register_blueprint(split_bp, url_prefix='/split')
     app.register_blueprint(lda_bp, url_prefix='/lda')
+    app.register_blueprint(prediksi_bp, url_prefix='/prediksi')

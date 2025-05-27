@@ -1,0 +1,677 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <!-- Header Section -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-brain text-primary"></i> Hasil Klasifikasi LDA
+    </h2>
+    <div class="btn-group" role="group">
+      <a href="{{ url_for('lda.train') }}" class="btn btn-primary">
+        <i class="fas fa-graduation-cap"></i> Training Model
+      </a>
+      {% if stats.latest_model %}
+      <form method="POST" action="{{ url_for('lda.predict') }}" style="display: inline;">
+        <button type="submit" class="btn btn-success" onclick="return confirmPredict()">
+          <i class="fas fa-play"></i> Prediksi
+        </button>
+      </form>
+      {% endif %}
+      {% if hasil_list %}
+      <a href="{{ url_for('lda.evaluate') }}" class="btn btn-info">
+        <i class="fas fa-chart-bar"></i> Evaluasi
+      </a>
+      <div class="btn-group">
+        <button type="button" class="btn btn-warning dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="fas fa-cog"></i> Aksi
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" href="{{ url_for('lda.export_csv') }}">
+            <i class="fas fa-download"></i> Export CSV
+          </a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item text-danger" href="#" onclick="confirmReset()">
+            <i class="fas fa-redo"></i> Reset Semua Data
+          </a></li>
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+          <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' if category == 'success' else 'info-circle' }}"></i>
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Statistics Cards -->
+  <div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-primary text-white stats-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Total Klasifikasi</h6>
+              <h3 class="mb-0 counter" data-target="{{ stats.total_klasifikasi }}">0</h3>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-brain fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-success text-white stats-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Data Training</h6>
+              <h3 class="mb-0 counter" data-target="{{ stats.train_count }}">0</h3>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-graduation-cap fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-warning text-white stats-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Data Testing</h6>
+              <h3 class="mb-0 counter" data-target="{{ stats.test_count }}">0</h3>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-vial fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card {{ 'bg-info' if stats.latest_model else 'bg-danger' }} text-white stats-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Status Model</h6>
+              <h5 class="mb-0">
+                {% if stats.latest_model %}
+                <i class="fas fa-check-circle"></i> Siap
+                {% else %}
+                <i class="fas fa-times-circle"></i> Belum
+                {% endif %}
+              </h5>
+              <small>
+                {% if stats.latest_model %}
+                {{ stats.latest_model.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                Belum Dilatih
+                {% endif %}
+              </small>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-robot fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if hasil_list %}
+  <!-- Filter Section -->
+  <div class="card mb-4 filter-card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-filter"></i> Filter & Pengaturan
+        <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+          <i class="fas fa-chevron-down"></i>
+        </button>
+      </h5>
+    </div>
+    <div class="collapse show" id="filterCollapse">
+      <div class="card-body">
+        <form method="GET" id="filterForm">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">
+                <i class="fas fa-tags"></i> Kategori
+              </label>
+              <select name="kategori" class="form-select" onchange="submitFilter()">
+                <option value="">Semua Kategori</option>
+                {% for kategori in kategori_list %}
+                <option value="{{ kategori.id_kategori }}" 
+                        {{ 'selected' if current_filters.kategori == kategori.id_kategori|string }}>
+                  {{ kategori.nama_kategori }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">
+                <i class="fas fa-sort"></i> Urutkan Berdasarkan
+              </label>
+              <select name="sort" class="form-select" onchange="submitFilter()">
+                <option value="tanggal_klasifikasi" {{ 'selected' if current_filters.sort == 'tanggal_klasifikasi' }}>Tanggal</option>
+                <option value="skor_lda" {{ 'selected' if current_filters.sort == 'skor_lda' }}>Skor LDA</option>
+                <option value="kategori" {{ 'selected' if current_filters.sort == 'kategori' }}>Kategori</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">
+                <i class="fas fa-arrow-up-down"></i> Urutan
+              </label>
+              <select name="order" class="form-select" onchange="submitFilter()">
+                <option value="desc" {{ 'selected' if current_filters.order == 'desc' }}>Tertinggi ke Terendah</option>
+                <option value="asc" {{ 'selected' if current_filters.order == 'asc' }}>Terendah ke Tertinggi</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">
+                <i class="fas fa-list"></i> Data per Halaman
+              </label>
+              <select name="per_page" class="form-select" onchange="submitFilter()">
+                <option value="5" {{ 'selected' if current_filters.per_page == 5 }}>5</option>
+                <option value="10" {{ 'selected' if current_filters.per_page == 10 }}>10</option>
+                <option value="25" {{ 'selected' if current_filters.per_page == 25 }}>25</option>
+                <option value="50" {{ 'selected' if current_filters.per_page == 50 }}>50</option>
+                <option value="100" {{ 'selected' if current_filters.per_page == 100 }}>100</option>
+              </select>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Table -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="fas fa-table"></i> Hasil Klasifikasi 
+      </h5>
+      <span class="badge bg-primary fs-6">{{ pagination.total }} Total Data</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-striped mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th width="60" class="text-center">No</th>
+              <th width="80" class="text-center">Preview</th>
+              <th>Informasi File</th>
+              <th width="150">Kategori Prediksi</th>
+              <th width="120" class="text-center">Skor LDA</th>
+              <th width="140" class="text-center">Tanggal</th>
+              <th width="100" class="text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for hasil, data_citra, dataset, kategori in hasil_list %}
+            <tr class="table-row">
+              <td class="text-center fw-bold">
+                {{ ((pagination.page - 1) * pagination.per_page) + loop.index }}
+              </td>
+              <td class="text-center">
+                <div class="image-container">
+                  <img src="{{ '/' ~ dataset.fixed_image_path }}" 
+                       alt="{{ dataset.nama_file }}" 
+                       class="img-thumbnail image-preview cursor-pointer"
+                       data-image-src="{{ '/' ~ dataset.fixed_image_path }}" 
+                       data-image-name="{{ dataset.nama_file }}"
+                       onclick="openImageModal(this)"
+                       loading="lazy">
+                </div>
+              </td>
+              <td>
+                <div class="file-info">
+                  <h6 class="mb-1 text-primary">{{ dataset.nama_file }}</h6>
+                  <small class="text-muted">
+                    <i class="fas fa-hashtag"></i> ID: {{ dataset.id_gambar }}
+                  </small>
+                  <br>
+                  <small class="text-muted">
+                    <i class="fas fa-database"></i> Data ID: {{ data_citra.id_data_citra }}
+                  </small>
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-info fs-6 category-badge">
+                  <i class="fas fa-tag"></i> {{ kategori.nama_kategori }}
+                </span>
+              </td>
+              <td class="text-center">
+                <span class="badge bg-success fs-6 score-badge">
+                  {{ "%.4f"|format(hasil.skor_lda) }}
+                </span>
+                <br>
+                <small class="text-muted">{{ (hasil.skor_lda * 100)|round(2) }}%</small>
+              </td>
+              <td class="text-center">
+                <div class="date-info">
+                  <strong>{{ hasil.tanggal_klasifikasi.strftime('%d-%m-%Y') }}</strong>
+                  <br>
+                  <small class="text-muted">{{ hasil.tanggal_klasifikasi.strftime('%H:%M:%S') }}</small>
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="btn-group" role="group">
+                  <a href="{{ url_for('lda.detail', id=hasil.id_hasil) }}" 
+                     class="btn btn-info btn-sm" 
+                     title="Lihat Detail"
+                     data-bs-toggle="tooltip">
+                    <i class="fas fa-eye"></i>
+                  </a>
+                  <a href="{{ url_for('lda.hapus', id=hasil.id_hasil) }}" 
+                     class="btn btn-danger btn-sm" 
+                     title="Hapus Data"
+                     data-bs-toggle="tooltip"
+                     onclick="return confirmDelete('{{ dataset.nama_file }}')">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      {% if pagination.total_pages > 1 %}
+      <div class="card-footer">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="pagination-info">
+            <small class="text-muted">
+              Menampilkan {{ ((pagination.page - 1) * pagination.per_page) + 1 }} - 
+              {{ ((pagination.page - 1) * pagination.per_page) + hasil_list|length }} 
+              dari {{ pagination.total }} data
+            </small>
+          </div>
+          
+          <nav aria-label="Navigasi halaman">
+            <ul class="pagination pagination-sm mb-0">
+              {% if pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('lda.index', page=pagination.prev_num, 
+                    per_page=current_filters.per_page, kategori=current_filters.kategori, 
+                    sort=current_filters.sort, order=current_filters.order) }}" 
+                   title="Halaman Sebelumnya">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+              </li>
+              {% endif %}
+
+              {% for page_num in range(1, pagination.total_pages + 1) %}
+                {% if page_num == pagination.page %}
+                <li class="page-item active">
+                  <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
+                <li class="page-item">
+                  <a class="page-link" href="{{ url_for('lda.index', page=page_num, 
+                      per_page=current_filters.per_page, kategori=current_filters.kategori, 
+                      sort=current_filters.sort, order=current_filters.order) }}">
+                    {{ page_num }}
+                  </a>
+                </li>
+                {% elif page_num == 4 and pagination.page > 5 %}
+                <li class="page-item disabled">
+                  <span class="page-link">...</span>
+                </li>
+                {% elif page_num == pagination.total_pages - 3 and pagination.page < pagination.total_pages - 4 %}
+                <li class="page-item disabled">
+                  <span class="page-link">...</span>
+                </li>
+                {% endif %}
+              {% endfor %}
+
+              {% if pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('lda.index', page=pagination.next_num, 
+                    per_page=current_filters.per_page, kategori=current_filters.kategori, 
+                    sort=current_filters.sort, order=current_filters.order) }}" 
+                   title="Halaman Selanjutnya">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+              </li>
+              {% endif %}
+            </ul>
+          </nav>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  
+  {% else %}
+  <!-- No Data State -->
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <div class="empty-state">
+        <i class="fas fa-robot fa-4x text-muted mb-4"></i>
+        <h4 class="text-muted mb-3">Belum Ada Hasil Klasifikasi</h4>
+        <p class="text-muted mb-4">
+          Untuk melihat hasil klasifikasi, Anda perlu melakukan training model LDA terlebih dahulu 
+          dan kemudian melakukan prediksi pada data test.
+        </p>
+        <div class="d-flex justify-content-center gap-2">
+          {% if not stats.latest_model %}
+          <a href="{{ url_for('lda.train') }}" class="btn btn-primary">
+            <i class="fas fa-graduation-cap"></i> Training Model LDA
+          </a>
+          {% else %}
+          <form method="POST" action="{{ url_for('lda.predict') }}" style="display: inline;">
+            <button type="submit" class="btn btn-success" onclick="return confirmPredict()">
+              <i class="fas fa-play"></i> Mulai Prediksi
+            </button>
+          </form>
+          {% endif %}
+          <a href="{{ url_for('split.create') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-random"></i> Lihat Split Data
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageModalLabel">
+          <i class="fas fa-image"></i> Preview Gambar
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="modalImage" src="" alt="" class="img-fluid rounded shadow">
+        <h6 id="modalImageName" class="mt-3 text-primary"></h6>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Form (Hidden) -->
+<form id="resetForm" method="POST" action="{{ url_for('lda.reset') }}" style="display: none;"></form>
+
+<style>
+/* Custom Styles */
+.stats-card {
+  border-radius: 15px;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.stats-icon {
+  opacity: 0.8;
+}
+
+.filter-card {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.image-container {
+  position: relative;
+  display: inline-block;
+}
+
+.image-preview {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.image-preview:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.file-info h6 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.category-badge, .score-badge {
+  font-size: 0.8rem !important;
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.date-info {
+  font-size: 0.85rem;
+}
+
+.table-row {
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  background-color: rgba(0,123,255,0.05);
+  transform: scale(1.01);
+}
+
+.empty-state {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+
+.btn-group .btn {
+  border-radius: 4px;
+  margin: 0 1px;
+}
+
+.counter {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+/* Loading Animation */
+.loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .stats-card {
+    margin-bottom: 1rem;
+  }
+  
+  .btn-group {
+    flex-direction: column;
+  }
+  
+  .image-preview {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .file-info h6 {
+    font-size: 0.8rem;
+  }
+}
+</style>
+
+<script>
+// Image Modal Function
+function openImageModal(element) {
+  const imageSrc = element.getAttribute('data-image-src');
+  const imageName = element.getAttribute('data-image-name');
+  
+  document.getElementById('modalImage').src = imageSrc;
+  document.getElementById('modalImageName').textContent = imageName;
+  
+  const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+  imageModal.show();
+}
+
+// Filter Form Submission
+function submitFilter() {
+  const form = document.getElementById('filterForm');
+  if (form) {
+    form.submit();
+  }
+}
+
+// Confirmation Functions
+function confirmPredict() {
+  return confirm('Mulai prediksi pada data test? Proses ini akan mengganti hasil klasifikasi yang ada.');
+}
+
+function confirmReset() {
+  if (confirm('Yakin ingin menghapus SEMUA hasil klasifikasi? Tindakan ini tidak dapat dibatalkan!')) {
+    document.getElementById('resetForm').submit();
+  }
+}
+
+function confirmDelete(filename) {
+  return confirm(`Yakin ingin menghapus hasil klasifikasi untuk file "${filename}"?`);
+}
+
+// Counter Animation
+function animateCounters() {
+  const counters = document.querySelectorAll('.counter');
+  
+  counters.forEach(counter => {
+    const target = parseInt(counter.getAttribute('data-target'));
+    const increment = target / 50;
+    let current = 0;
+    
+    const updateCounter = () => {
+      if (current < target) {
+        current += increment;
+        counter.textContent = Math.ceil(current);
+        requestAnimationFrame(updateCounter);
+      } else {
+        counter.textContent = target;
+      }
+    };
+    
+    updateCounter();
+  });
+}
+
+// Auto-hide Alerts
+function autoHideAlerts() {
+  const alerts = document.querySelectorAll('.alert-dismissible');
+  alerts.forEach(alert => {
+    setTimeout(() => {
+      if (alert && alert.parentNode) {
+        alert.classList.remove('show');
+        setTimeout(() => {
+          if (alert.parentNode) {
+            alert.remove();
+          }
+        }, 150);
+      }
+    }, 8000);
+  });
+}
+
+// Initialize on DOM Load
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize tooltips
+  const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  tooltips.forEach(el => new bootstrap.Tooltip(el));
+  
+  // Animate counters
+  animateCounters();
+  
+  // Auto-hide alerts
+  autoHideAlerts();
+  
+  // Add loading state to predict button
+  const predictForms = document.querySelectorAll('form[action*="predict"]');
+  predictForms.forEach(form => {
+    form.addEventListener('submit', function() {
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
+      }
+    });
+  });
+});
+
+// Refresh page data every 30 seconds if no results
+{% if not hasil_list %}
+setInterval(function() {
+  fetch('{{ url_for("lda.api_stats") }}')
+    .then(response => response.json())
+    .then(data => {
+      if (data.total_klasifikasi > 0) {
+        location.reload();
+      }
+    })
+    .catch(error => console.log('Refresh check failed:', error));
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

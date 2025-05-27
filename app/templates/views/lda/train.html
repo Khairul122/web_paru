@@ -1,0 +1,292 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-graduation-cap"></i> Training Model LDA
+    </h2>
+    <a href="{{ url_for('lda.index') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Kembali
+    </a>
+  </div>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+          <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' if category == 'success' else 'info-circle' }}"></i>
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Statistics Cards -->
+  <div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-success text-white">
+        <div class="card-body text-center">
+          <h3>{{ stats.train_count }}</h3>
+          <p class="mb-0">Data Training</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-warning text-white">
+        <div class="card-body text-center">
+          <h3>{{ stats.test_count }}</h3>
+          <p class="mb-0">Data Testing</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card bg-info text-white">
+        <div class="card-body text-center">
+          <h3>{{ stats.total_klasifikasi }}</h3>
+          <p class="mb-0">Hasil Klasifikasi</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+      <div class="card {{ 'bg-primary' if stats.latest_model else 'bg-danger' }} text-white">
+        <div class="card-body text-center">
+          <h3>
+            {% if stats.latest_model %}
+            <i class="fas fa-check"></i>
+            {% else %}
+            <i class="fas fa-times"></i>
+            {% endif %}
+          </h3>
+          <p class="mb-0">Status Model</p>
+          {% if stats.latest_model %}
+          <small>{{ stats.latest_model.strftime('%d/%m/%Y %H:%M') }}</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Training Section -->
+  <div class="card">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">
+        <i class="fas fa-cogs"></i> Training Linear Discriminant Analysis
+      </h5>
+    </div>
+    <div class="card-body">
+      {% if stats.train_count > 0 and stats.test_count > 0 %}
+      
+      <!-- Training Information -->
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        <strong>Informasi:</strong> Model LDA akan dilatih menggunakan {{ stats.train_count }} data training 
+        dengan 6 fitur GLCM (Contrast, Dissimilarity, Homogeneity, Energy, Correlation, ASM).
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <h6>Proses Training:</h6>
+          <ol>
+            <li>Mengambil data training dari split data</li>
+            <li>Validasi dan pembersihan data</li>
+            <li>Normalisasi fitur menggunakan StandardScaler</li>
+            <li>Encoding label kategori</li>
+            <li>Training model Linear Discriminant Analysis</li>
+            <li>Evaluasi dan penyimpanan model</li>
+          </ol>
+        </div>
+        <div class="col-md-6">
+          <h6>Fitur GLCM yang Digunakan:</h6>
+          <ul>
+            <li><strong>Contrast:</strong> Variasi intensitas pixel</li>
+            <li><strong>Dissimilarity:</strong> Ketidaksamaan antar pixel</li>
+            <li><strong>Homogeneity:</strong> Keseragaman tekstur</li>
+            <li><strong>Energy:</strong> Distribusi energi</li>
+            <li><strong>Correlation:</strong> Korelasi linear</li>
+            <li><strong>ASM:</strong> Angular Second Moment</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Training Form -->
+      <div class="text-center mt-4">
+        <form method="POST" action="{{ url_for('lda.process_train') }}" id="trainingForm">
+          <button type="submit" class="btn btn-primary btn-lg" id="trainBtn">
+            <i class="fas fa-play"></i> Mulai Training Model LDA
+          </button>
+        </form>
+      </div>
+
+      <!-- Model Warning -->
+      {% if stats.latest_model %}
+      <div class="alert alert-warning mt-3">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Peringatan:</strong> Model sudah pernah dilatih pada {{ stats.latest_model.strftime('%d %B %Y, %H:%M:%S') }}. 
+        Training ulang akan menimpa model yang ada.
+      </div>
+      {% endif %}
+
+      {% else %}
+      
+      <!-- No Data Warning -->
+      <div class="alert alert-danger">
+        <i class="fas fa-exclamation-circle"></i>
+        <strong>Tidak Dapat Training:</strong>
+        {% if stats.train_count == 0 %}
+        Tidak ada data training yang tersedia. Silakan lakukan split data terlebih dahulu.
+        {% elif stats.test_count == 0 %}
+        Tidak ada data testing yang tersedia. Silakan lakukan split data terlebih dahulu.
+        {% endif %}
+      </div>
+      
+      <div class="text-center">
+        <a href="{{ url_for('split.create') }}" class="btn btn-warning">
+          <i class="fas fa-random"></i> Split Data Sekarang
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Results Distribution -->
+  {% if stats.kategori_stats %}
+  <div class="card mt-4">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-chart-pie"></i> Distribusi Hasil Klasifikasi
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        {% for kategori_stat in stats.kategori_stats %}
+        <div class="col-md-3 mb-3">
+          <div class="text-center p-3 bg-light rounded">
+            <h4 class="text-primary">{{ kategori_stat.total }}</h4>
+            <small class="text-muted">{{ kategori_stat.nama_kategori }}</small>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Debug Info (Remove in production) -->
+  <div class="card mt-4">
+    <div class="card-header">
+      <h6 class="mb-0">
+        <i class="fas fa-bug"></i> Debug Information
+      </h6>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-3">
+          <strong>Train Count:</strong> {{ stats.train_count }}
+        </div>
+        <div class="col-md-3">
+          <strong>Test Count:</strong> {{ stats.test_count }}
+        </div>
+        <div class="col-md-3">
+          <strong>Model Exists:</strong> {{ 'Yes' if stats.latest_model else 'No' }}
+        </div>
+        <div class="col-md-3">
+          <strong>Ready:</strong> {{ 'Yes' if stats.train_count > 0 and stats.test_count > 0 else 'No' }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+}
+
+.btn-lg {
+  padding: 12px 30px;
+  font-size: 1.1rem;
+}
+
+ol li, ul li {
+  margin-bottom: 0.5rem;
+}
+
+.bg-light {
+  border: 1px solid #e9ecef;
+}
+
+.alert {
+  border-radius: 8px;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.btn-close:hover {
+  opacity: 1;
+}
+
+#trainBtn.loading {
+  pointer-events: none;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('trainingForm');
+  const trainBtn = document.getElementById('trainBtn');
+  
+  if (form && trainBtn) {
+    form.addEventListener('submit', function(e) {
+      // Confirm training
+      if (!confirm('Mulai training model LDA? Proses ini mungkin memakan waktu beberapa menit dan akan menimpa model sebelumnya jika ada.')) {
+        e.preventDefault();
+        return false;
+      }
+      
+      // Show loading state
+      trainBtn.disabled = true;
+      trainBtn.classList.add('loading');
+      trainBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sedang Training...';
+      
+      // Set timeout to prevent infinite loading
+      setTimeout(function() {
+        if (trainBtn.disabled) {
+          trainBtn.disabled = false;
+          trainBtn.classList.remove('loading');
+          trainBtn.innerHTML = '<i class="fas fa-play"></i> Mulai Training Model LDA';
+        }
+      }, 60000); // 1 minute timeout
+    });
+  }
+  
+  // Auto-hide alerts after 10 seconds
+  const alerts = document.querySelectorAll('.alert-dismissible');
+  alerts.forEach(function(alert) {
+    setTimeout(function() {
+      if (alert.parentNode) {
+        alert.classList.remove('show');
+        setTimeout(function() {
+          if (alert.parentNode) {
+            alert.remove();
+          }
+        }, 150);
+      }
+    }, 10000);
+  });
+});
+</script>
+{% endblock %}

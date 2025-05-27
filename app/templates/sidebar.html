@@ -2,38 +2,44 @@
   <ul class="nav">
     <li class="nav-item">
       <a class="nav-link" href="{{ url_for('dashboard.index') }}">
-        <i class="mdi mdi-grid-large menu-icon"></i>
+        <i class="mdi mdi-view-dashboard menu-icon"></i>
         <span class="menu-title">Dashboard</span>
       </a>
     </li>
     <li class="nav-item">
       <a class="nav-link" href="{{ url_for('kategori.index') }}">
-        <i class="mdi mdi-grid-large menu-icon"></i>
+        <i class="mdi mdi-dna menu-icon"></i>
         <span class="menu-title">Kategori Penyakit</span>
       </a>
     </li>
     <li class="nav-item">
       <a class="nav-link" href="{{ url_for('dataset.index') }}">
-        <i class="mdi mdi-grid-large menu-icon"></i>
+        <i class="mdi mdi-folder-multiple-image menu-icon"></i>
         <span class="menu-title">Dataset</span>
       </a>
     </li>
     <li class="nav-item">
       <a class="nav-link" href="{{ url_for('glcm.index') }}">
-        <i class="mdi mdi-grid-large menu-icon"></i>
-        <span class="menu-title">Dataset</span>
+        <i class="mdi mdi-chart-bar menu-icon"></i>
+        <span class="menu-title">Ekstraksi GLCM</span>
       </a>
     </li>
-     <li class="nav-item">
+    <li class="nav-item">
       <a class="nav-link" href="{{ url_for('split.index') }}">
-        <i class="mdi mdi-grid-large menu-icon"></i>
+        <i class="mdi mdi-content-cut menu-icon"></i>
         <span class="menu-title">Split Data Ekstraksi</span>
       </a>
     </li>
-        <li class="nav-item">
+    <li class="nav-item">
       <a class="nav-link" href="{{ url_for('lda.index') }}">
-        <i class="mdi mdi-grid-large menu-icon"></i>
-        <span class="menu-title">LDA</span>
+        <i class="mdi mdi-brain menu-icon"></i>
+        <span class="menu-title">Evaluasi Model</span>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('prediksi.index') }}">
+        <i class="mdi mdi-brain menu-icon"></i>
+        <span class="menu-title">Prediksi</span>
       </a>
     </li>
   </ul>

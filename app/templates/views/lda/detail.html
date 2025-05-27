@@ -1,0 +1,450 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+      <i class="fas fa-info-circle"></i> Detail Hasil Klasifikasi LDA
+    </h2>
+    <a href="{{ url_for('lda.index') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Kembali
+    </a>
+  </div>
+
+  <div class="row">
+    <!-- Informasi Klasifikasi -->
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-brain"></i> Hasil Klasifikasi
+          </h5>
+        </div>
+        <div class="card-body">
+          <table class="table table-borderless">
+            <tr>
+              <td class="fw-bold"><i class="fas fa-hashtag"></i> ID Hasil:</td>
+              <td><code>{{ hasil[0].id_hasil }}</code></td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-tag"></i> Kategori Prediksi:</td>
+              <td>
+                <span class="badge bg-success fs-6">{{ hasil[3].nama_kategori }}</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-percentage"></i> Skor LDA:</td>
+              <td>
+                <span class="badge bg-warning text-dark fs-6">{{ "%.6f"|format(hasil[0].skor_lda) }}</span>
+                <br>
+                <small class="text-muted">Confidence: {{ "%.2f"|format(hasil[0].skor_lda * 100) }}%</small>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-calendar"></i> Tanggal Klasifikasi:</td>
+              <td>{{ hasil[0].tanggal_klasifikasi.strftime('%d %B %Y, %H:%M:%S') }}</td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-database"></i> ID Data Citra:</td>
+              <td><code>{{ hasil[0].id_data_citra }}</code></td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-folder"></i> ID Kategori:</td>
+              <td><code>{{ hasil[0].id_kategori }}</code></td>
+            </tr>
+          </table>
+
+          <div class="mt-3 p-3 bg-info bg-opacity-10 rounded">
+            <h6 class="text-info mb-2">
+              <i class="fas fa-info-circle"></i> Interpretasi Skor
+            </h6>
+            <small class="text-muted">
+              {% if hasil[0].skor_lda >= 0.8 %}
+              <span class="badge bg-success">Tinggi</span> - Model sangat yakin dengan prediksi ini
+              {% elif hasil[0].skor_lda >= 0.6 %}
+              <span class="badge bg-warning">Sedang</span> - Model cukup yakin dengan prediksi ini
+              {% else %}
+              <span class="badge bg-danger">Rendah</span> - Model kurang yakin dengan prediksi ini
+              {% endif %}
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Informasi Gambar -->
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-image"></i> Informasi Gambar
+          </h5>
+        </div>
+        <div class="card-body text-center">
+          <div class="mb-3">
+            <img src="{{ '/' ~ hasil[2].fixed_image_path }}" alt="{{ hasil[2].nama_file }}" 
+                 class="img-fluid rounded shadow" style="max-height: 250px; max-width: 100%;">
+          </div>
+          
+          <table class="table table-borderless text-start">
+            <tr>
+              <td class="fw-bold"><i class="fas fa-file"></i> Nama File:</td>
+              <td>{{ hasil[2].nama_file }}</td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-hashtag"></i> ID Gambar:</td>
+              <td><code>{{ hasil[2].id_gambar }}</code></td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-calendar"></i> Upload:</td>
+              <td>{{ hasil[2].tanggal_upload.strftime('%d %B %Y, %H:%M') }}</td>
+            </tr>
+            <tr>
+              <td class="fw-bold"><i class="fas fa-folder"></i> Path:</td>
+              <td><code class="text-break">{{ hasil[2].path_file }}</code></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fitur GLCM -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-line"></i> Fitur GLCM yang Digunakan
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <!-- Contrast -->
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded text-center">
+                <i class="fas fa-adjust fa-2x text-primary mb-2"></i>
+                <h6 class="text-muted mb-1">Contrast</h6>
+                <h5 class="mb-0 text-primary">{{ "%.6f"|format(hasil[1].contrast) }}</h5>
+              </div>
+            </div>
+
+            <!-- Dissimilarity -->
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded text-center">
+                <i class="fas fa-not-equal fa-2x text-info mb-2"></i>
+                <h6 class="text-muted mb-1">Dissimilarity</h6>
+                <h5 class="mb-0 text-info">{{ "%.6f"|format(hasil[1].dissimilarity) }}</h5>
+              </div>
+            </div>
+
+            <!-- Homogeneity -->
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded text-center">
+                <i class="fas fa-equals fa-2x text-warning mb-2"></i>
+                <h6 class="text-muted mb-1">Homogeneity</h6>
+                <h5 class="mb-0 text-warning">{{ "%.6f"|format(hasil[1].homogeneity) }}</h5>
+              </div>
+            </div>
+
+            <!-- Energy -->
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded text-center">
+                <i class="fas fa-bolt fa-2x text-danger mb-2"></i>
+                <h6 class="text-muted mb-1">Energy</h6>
+                <h5 class="mb-0 text-danger">{{ "%.6f"|format(hasil[1].energy) }}</h5>
+              </div>
+            </div>
+
+            <!-- Correlation -->
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded text-center">
+                <i class="fas fa-link fa-2x text-dark mb-2"></i>
+                <h6 class="text-muted mb-1">Correlation</h6>
+                <h5 class="mb-0 text-dark">{{ "%.6f"|format(hasil[1].correlation) }}</h5>
+              </div>
+            </div>
+
+            <!-- ASM -->
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+              <div class="feature-item p-3 bg-light rounded text-center">
+                <i class="fas fa-square-root-alt fa-2x text-secondary mb-2"></i>
+                <h6 class="text-muted mb-1">ASM</h6>
+                <h5 class="mb-0 text-secondary">{{ "%.6f"|format(hasil[1].asm) }}</h5>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 p-3 bg-warning bg-opacity-10 rounded">
+            <h6 class="text-warning mb-2">
+              <i class="fas fa-info-circle"></i> Informasi Ekstraksi GLCM
+            </h6>
+            <div class="row">
+              <div class="col-md-6">
+                <small class="text-muted">
+                  <strong>Tanggal Ekstraksi:</strong> {{ hasil[1].tanggal_upload.strftime('%d %B %Y, %H:%M:%S') }}<br>
+                  <strong>ID Data Citra:</strong> {{ hasil[1].id_data_citra }}<br>
+                  <strong>Diekstraksi oleh:</strong> User ID {{ hasil[1].uploaded_by }}
+                </small>
+              </div>
+              <div class="col-md-6">
+                <small class="text-muted">
+                  <strong>Parameter GLCM:</strong><br>
+                  Distance: 1 pixel, Angles: 0°-135°<br>
+                  Levels: 256, Normalized: True
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visualisasi dan Actions -->
+  <div class="row mt-4">
+    <!-- Visualisasi Chart -->
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-bar"></i> Visualisasi Fitur GLCM
+          </h5>
+        </div>
+        <div class="card-body">
+          <canvas id="glcmChart" width="400" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header bg-secondary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-tools"></i> Aksi
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="{{ url_for('lda.index') }}" class="btn btn-outline-primary">
+              <i class="fas fa-list"></i> Daftar Hasil LDA
+            </a>
+            <a href="{{ url_for('glcm.detail', id=hasil[1].id_data_citra) }}" class="btn btn-outline-info">
+              <i class="fas fa-chart-line"></i> Detail GLCM
+            </a>
+            <a href="{{ url_for('lda.export_csv') }}" class="btn btn-outline-success">
+              <i class="fas fa-download"></i> Export CSV
+            </a>
+            <button type="button" class="btn btn-outline-warning" onclick="copyResults()">
+              <i class="fas fa-copy"></i> Copy Hasil
+            </button>
+            <a href="{{ url_for('lda.hapus', id=hasil[0].id_hasil) }}" 
+               class="btn btn-outline-danger"
+               onclick="return confirm('Yakin ingin menghapus hasil klasifikasi ini?')">
+              <i class="fas fa-trash"></i> Hapus Data
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LDA Information -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-light">
+          <h5 class="mb-0">
+            <i class="fas fa-lightbulb"></i> Tentang Linear Discriminant Analysis (LDA)
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6>Algoritma LDA:</h6>
+              <ul>
+                <li>Linear Discriminant Analysis adalah teknik machine learning untuk klasifikasi</li>
+                <li>Mengurangi dimensi data sambil mempertahankan informasi diskriminatif</li>
+                <li>Mencari proyeksi linear yang memisahkan kelas dengan baik</li>
+                <li>Efektif untuk data dengan banyak fitur seperti GLCM</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6>Interpretasi Hasil:</h6>
+              <ul>
+                <li><strong>Skor LDA:</strong> Confidence model terhadap prediksi (0-1)</li>
+                <li><strong>Kategori:</strong> Kelas yang diprediksi oleh model</li>
+                <li><strong>Fitur GLCM:</strong> Input yang digunakan untuk klasifikasi</li>
+                <li><strong>Akurasi model dapat dilihat di halaman evaluasi</strong></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.feature-item {
+  transition: all 0.3s ease;
+  border: 1px solid #e9ecef;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+}
+
+.card-header {
+  border-bottom: none;
+}
+
+code {
+  font-size: 0.875rem;
+  background-color: #f8f9fa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.bg-opacity-10 {
+  --bs-bg-opacity: 0.1;
+}
+
+@media (max-width: 768px) {
+  .feature-item h5 {
+    font-size: 1rem;
+  }
+  
+  .feature-item h6 {
+    font-size: 0.875rem;
+  }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('glcmChart').getContext('2d');
+  
+  const glcmData = {
+    labels: ['Contrast', 'Dissimilarity', 'Homogeneity', 'Energy', 'Correlation', 'ASM'],
+    datasets: [{
+      label: 'Nilai Fitur GLCM',
+      data: [
+        {{ hasil[1].contrast }},
+        {{ hasil[1].dissimilarity }},
+        {{ hasil[1].homogeneity }},
+        {{ hasil[1].energy }},
+        {{ hasil[1].correlation }},
+        {{ hasil[1].asm }}
+      ],
+      backgroundColor: [
+        'rgba(54, 162, 235, 0.6)',
+        'rgba(255, 99, 132, 0.6)',
+        'rgba(255, 206, 86, 0.6)',
+        'rgba(75, 192, 192, 0.6)',
+        'rgba(153, 102, 255, 0.6)',
+        'rgba(255, 159, 64, 0.6)'
+      ],
+      borderColor: [
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(255, 206, 86, 1)',
+        'rgba(75, 192, 192, 1)',
+        'rgba(153, 102, 255, 1)',
+        'rgba(255, 159, 64, 1)'
+      ],
+      borderWidth: 2
+    }]
+  };
+
+  const config = {
+    type: 'bar',
+    data: glcmData,
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Distribusi Fitur GLCM - Hasil Klasifikasi LDA'
+        },
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Nilai Fitur'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Jenis Fitur'
+          }
+        }
+      }
+    }
+  };
+
+  new Chart(ctx, config);
+
+  const featureItems = document.querySelectorAll('.feature-item');
+  featureItems.forEach(item => {
+    item.addEventListener('mouseenter', function() {
+      this.style.transform = 'translateY(-2px)';
+      this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+    });
+    
+    item.addEventListener('mouseleave', function() {
+      this.style.transform = 'translateY(0)';
+      this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+    });
+  });
+});
+
+function copyResults() {
+  const results = `Hasil Klasifikasi LDA:
+ID: {{ hasil[0].id_hasil }}
+Kategori Prediksi: {{ hasil[3].nama_kategori }}
+Skor LDA: {{ "%.6f"|format(hasil[0].skor_lda) }}
+Confidence: {{ "%.2f"|format(hasil[0].skor_lda * 100) }}%
+File: {{ hasil[2].nama_file }}
+
+Fitur GLCM:
+Contrast: {{ "%.6f"|format(hasil[1].contrast) }}
+Dissimilarity: {{ "%.6f"|format(hasil[1].dissimilarity) }}
+Homogeneity: {{ "%.6f"|format(hasil[1].homogeneity) }}
+Energy: {{ "%.6f"|format(hasil[1].energy) }}
+Correlation: {{ "%.6f"|format(hasil[1].correlation) }}
+ASM: {{ "%.6f"|format(hasil[1].asm) }}
+
+Tanggal: {{ hasil[0].tanggal_klasifikasi.strftime('%Y-%m-%d %H:%M:%S') }}`;
+  
+  navigator.clipboard.writeText(results).then(function() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Disalin!';
+    btn.classList.remove('btn-outline-warning');
+    btn.classList.add('btn-success');
+    
+    setTimeout(function() {
+      btn.innerHTML = originalText;
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-outline-warning');
+    }, 2000);
+  }).catch(function(err) {
+    alert('Gagal menyalin ke clipboard');
+  });
+}
+</script>
+{% endblock %>

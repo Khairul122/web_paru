@@ -1,6 +1,499 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<h2>Selamat Datang di Dashboard</h2>
-<p>Isi konten dashboard kamu di sini.</p>
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card welcome-card">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <h1 class="welcome-title">
+                <i class="{{ greeting_icon }} text-warning me-2"></i>
+                {{ greeting }}, {{ user_name }}!
+              </h1>
+              <p class="welcome-subtitle mb-0">
+                Sistem Klasifikasi Penyakit Paru-paru menggunakan Linear Discriminant Analysis
+              </p>
+              <small class="text-light">
+                <i class="fas fa-clock"></i> {{ current_time.strftime('%A, %d %B %Y - %H:%M WIB') }}
+              </small>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="welcome-stats">
+                <div class="stat-item">
+                  <h4 class="mb-0">{{ stats.total_classifications }}</h4>
+                  <small>Total Klasifikasi</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card stats-card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Dataset</h6>
+              <h3 class="mb-0">{{ stats.total_datasets }}</h3>
+              <small>Total gambar</small>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-images fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card stats-card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Kategori</h6>
+              <h3 class="mb-0">{{ stats.total_categories }}</h3>
+              <small>Kategori penyakit</small>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-tags fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card stats-card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Fitur GLCM</h6>
+              <h3 class="mb-0">{{ stats.total_features }}</h3>
+              <small>Data diekstrak</small>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-cogs fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card stats-card bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Klasifikasi</h6>
+              <h3 class="mb-0">{{ stats.total_classifications }}</h3>
+              <small>Hasil LDA</small>
+            </div>
+            <div class="stats-icon">
+              <i class="fas fa-brain fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-xl-4 col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-random text-primary"></i> Split Data
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6">
+              <div class="split-stat">
+                <h4 class="text-success">{{ stats.train_data }}</h4>
+                <small class="text-muted">Training</small>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="split-stat">
+                <h4 class="text-warning">{{ stats.test_data }}</h4>
+                <small class="text-muted">Testing</small>
+              </div>
+            </div>
+          </div>
+          <div class="progress mt-3" style="height: 8px;">
+            {% set total_split = stats.train_data + stats.test_data %}
+            {% if total_split > 0 %}
+            <div class="progress-bar bg-success" style="width: {{ (stats.train_data / total_split * 100)|round(1) }}%"></div>
+            <div class="progress-bar bg-warning" style="width: {{ (stats.test_data / total_split * 100)|round(1) }}%"></div>
+            {% endif %}
+          </div>
+          <div class="text-center mt-2">
+            <small class="text-muted">
+              Total: {{ stats.train_data + stats.test_data }} data
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4 col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-pie text-info"></i> Distribusi Dataset
+          </h5>
+        </div>
+        <div class="card-body">
+          {% if stats.category_distribution %}
+          <canvas id="categoryChart" width="300" height="300"></canvas>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Belum ada data kategori</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4 col-lg-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-chart-bar text-success"></i> Hasil Klasifikasi
+          </h5>
+        </div>
+        <div class="card-body">
+          {% if stats.classification_distribution %}
+          <canvas id="classificationChart" width="300" height="300"></canvas>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Belum ada hasil klasifikasi</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-8 col-lg-7 mb-4">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="fas fa-history text-primary"></i> Klasifikasi Terbaru
+          </h5>
+          <a href="{{ url_for('lda.index') }}" class="btn btn-sm btn-outline-primary">
+            Lihat Semua
+          </a>
+        </div>
+        <div class="card-body">
+          {% if stats.recent_classifications %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover">
+              <thead>
+                <tr>
+                  <th width="60">Gambar</th>
+                  <th>File</th>
+                  <th>Prediksi</th>
+                  <th>Skor</th>
+                  <th>Waktu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for hasil, dataset, kategori in stats.recent_classifications %}
+                <tr>
+                  <td>
+                    <img src="{{ '/' ~ dataset.path_file.replace('\\', '/') }}" 
+                         alt="{{ dataset.nama_file }}" 
+                         class="img-thumbnail"
+                         style="width: 40px; height: 40px; object-fit: cover;"
+                         onerror="this.src='/static/img/no-image.png'">
+                  </td>
+                  <td>
+                    <div>
+                      <strong>{{ dataset.nama_file }}</strong>
+                      <br>
+                      <small class="text-muted">ID: {{ dataset.id_gambar }}</small>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge bg-info">{{ kategori.nama_kategori }}</span>
+                  </td>
+                  <td>
+                    <span class="badge bg-success">{{ "%.3f"|format(hasil.skor_lda) }}</span>
+                  </td>
+                  <td>
+                    <small>{{ hasil.tanggal_klasifikasi.strftime('%d/%m %H:%M') }}</small>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Belum ada hasil klasifikasi</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4 col-lg-5 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-bolt text-warning"></i> Aksi Cepat
+          </h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="{{ url_for('dataset.index') }}" class="btn btn-primary">
+              <i class="fas fa-images"></i> Kelola Dataset
+            </a>
+            <a href="{{ url_for('kategori.index') }}" class="btn btn-success">
+              <i class="fas fa-tags"></i> Kelola Kategori
+            </a>
+            <a href="{{ url_for('glcm.index') }}" class="btn btn-info">
+              <i class="fas fa-cogs"></i> Ekstrak Fitur GLCM
+            </a>
+            <a href="{{ url_for('split.index') }}" class="btn btn-warning">
+              <i class="fas fa-random"></i> Split Data
+            </a>
+            <a href="{{ url_for('lda.train') }}" class="btn btn-secondary">
+              <i class="fas fa-graduation-cap"></i> Training LDA
+            </a>
+            <a href="{{ url_for('lda.index') }}" class="btn btn-dark">
+              <i class="fas fa-brain"></i> Hasil Klasifikasi
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header">
+          <h6 class="mb-0">
+            <i class="fas fa-server text-info"></i> Status Sistem
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="status-item d-flex justify-content-between align-items-center mb-2">
+            <span><i class="fas fa-database text-success"></i> Database</span>
+            <span class="badge bg-success">Online</span>
+          </div>
+          <div class="status-item d-flex justify-content-between align-items-center mb-2">
+            <span><i class="fas fa-brain text-primary"></i> Model LDA</span>
+            {% if stats.total_classifications > 0 %}
+            <span class="badge bg-success">Ready</span>
+            {% else %}
+            <span class="badge bg-warning">Not Trained</span>
+            {% endif %}
+          </div>
+          <div class="status-item d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-clock text-muted"></i> Last Update</span>
+            <small class="text-muted">{{ current_time.strftime('%H:%M') }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.welcome-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.welcome-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.welcome-subtitle {
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.welcome-stats .stat-item {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.stats-card {
+  border-radius: 15px;
+  transition: all 0.3s ease;
+  border: none;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+.stats-icon {
+  opacity: 0.8;
+}
+
+.split-stat {
+  padding: 1rem 0;
+}
+
+.card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.status-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.status-item:last-child {
+  border-bottom: none;
+}
+
+.btn {
+  border-radius: 8px;
+}
+
+.table th {
+  border-top: none;
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.85rem;
+}
+
+.table td {
+  vertical-align: middle;
+  font-size: 0.85rem;
+}
+
+.img-thumbnail {
+  border-radius: 8px;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.4em 0.8em;
+  border-radius: 20px;
+}
+
+@media (max-width: 768px) {
+  .welcome-title {
+    font-size: 1.5rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 1rem;
+  }
+  
+  .stats-card {
+    margin-bottom: 1rem;
+  }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const chartColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+
+function createCategoryChart() {
+  const ctx = document.getElementById('categoryChart');
+  if (!ctx) return;
+  
+  {% if stats.category_distribution %}
+  const categoryData = {
+    labels: [{% for item in stats.category_distribution %}'{{ item[0] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      data: [{% for item in stats.category_distribution %}{{ item[1] }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: chartColors.slice(0, {{ stats.category_distribution|length }}),
+      borderWidth: 2,
+      borderColor: '#ffffff'
+    }]
+  };
+  
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: categoryData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 15,
+            usePointStyle: true,
+            font: { size: 11 }
+          }
+        }
+      }
+    }
+  });
+  {% endif %}
+}
+
+function createClassificationChart() {
+  const ctx = document.getElementById('classificationChart');
+  if (!ctx) return;
+  
+  {% if stats.classification_distribution %}
+  const classificationData = {
+    labels: [{% for item in stats.classification_distribution %}'{{ item[0] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      label: 'Jumlah Klasifikasi',
+      data: [{% for item in stats.classification_distribution %}{{ item[1] }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: chartColors.slice(0, {{ stats.classification_distribution|length }}),
+      borderWidth: 2,
+      borderColor: '#ffffff',
+      borderRadius: 5
+    }]
+  };
+  
+  new Chart(ctx, {
+    type: 'bar',
+    data: classificationData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1 }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+  {% endif %}
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(() => {
+    createCategoryChart();
+    createClassificationChart();
+  }, 500);
+});
+</script>
 {% endblock %}
