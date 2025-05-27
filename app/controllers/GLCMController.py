@@ -15,9 +15,6 @@ glcm_bp = Blueprint('glcm', __name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def load_and_preprocess_image(image_path):
-    """
-    Load image dan preprocessing untuk GLCM
-    """
     try:
         print(f"Trying to load image: {image_path}")
         
@@ -41,11 +38,22 @@ def load_and_preprocess_image(image_path):
         resized = cv2.resize(gray, (256, 256))
         print(f"Resized to 256x256. Shape: {resized.shape}")
         
-        normalized = cv2.equalizeHist(resized)
-        print("Histogram equalization applied")
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        enhanced = clahe.apply(resized)
+        print("CLAHE enhancement applied")
         
-        result = img_as_ubyte(normalized)
-        print(f"Final result shape: {result.shape}, dtype: {result.dtype}")
+        kernel = np.array([[0,-1,0], [-1,5,-1], [0,-1,0]])
+        sharpened = cv2.filter2D(enhanced, -1, kernel)
+        print("Sharpening filter applied")
+        
+        denoised = cv2.medianBlur(sharpened, 3)
+        print("Median blur denoising applied")
+        
+        normalized = cv2.normalize(denoised, None, 0, 63, cv2.NORM_MINMAX)
+        print(f"Normalized to range 0-63. Min: {np.min(normalized)}, Max: {np.max(normalized)}")
+        
+        result = normalized.astype(np.uint8)
+        print(f"Final result shape: {result.shape}, dtype: {result.dtype}, range: {np.min(result)}-{np.max(result)}")
         
         return result
     
@@ -56,17 +64,23 @@ def load_and_preprocess_image(image_path):
         return None
 
 def calculate_glcm_features(image):
-    """
-    Menghitung fitur GLCM dari gambar
-    """
     try:
-        print("Starting GLCM calculation...")
+        print("Starting enhanced GLCM calculation...")
         
-        distances = [1]
+        max_val = np.max(image)
+        min_val = np.min(image)
+        print(f"Image value range: {min_val} to {max_val}")
+        
+        if max_val >= 64:
+            print("Rescaling image to fit 64 levels...")
+            image = ((image - min_val) / (max_val - min_val) * 63).astype(np.uint8)
+            print(f"Rescaled image range: {np.min(image)} to {np.max(image)}")
+        
+        distances = [1, 2, 3]
         angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
-        levels = 256
+        levels = 64
         
-        print(f"GLCM parameters - distances: {distances}, angles: {angles}, levels: {levels}")
+        print(f"Enhanced GLCM parameters - distances: {distances}, angles: {angles}, levels: {levels}")
         
         glcm = graycomatrix(
             image, 
@@ -79,27 +93,59 @@ def calculate_glcm_features(image):
         
         print(f"GLCM matrix shape: {glcm.shape}")
         
-        contrast = np.mean(graycoprops(glcm, 'contrast'))
-        dissimilarity = np.mean(graycoprops(glcm, 'dissimilarity'))
-        homogeneity = np.mean(graycoprops(glcm, 'homogeneity'))
-        energy = np.mean(graycoprops(glcm, 'energy'))
-        correlation = np.mean(graycoprops(glcm, 'correlation'))
-        asm_value = np.mean(graycoprops(glcm, 'ASM'))
+        contrast_values = []
+        dissimilarity_values = []
+        homogeneity_values = []
+        energy_values = []
+        correlation_values = []
+        asm_values = []
+        
+        for d_idx in range(len(distances)):
+            for a_idx in range(len(angles)):
+                glcm_slice = glcm[:, :, d_idx, a_idx]
+                
+                contrast_values.append(np.sum((np.arange(levels)[:, None] - np.arange(levels))**2 * glcm_slice))
+                
+                i, j = np.meshgrid(range(levels), range(levels), indexing='ij')
+                dissimilarity_values.append(np.sum(np.abs(i - j) * glcm_slice))
+                
+                homogeneity_values.append(np.sum(glcm_slice / (1 + (i - j)**2)))
+                
+                energy_values.append(np.sum(glcm_slice**2))
+                asm_values.append(np.sum(glcm_slice**2))
+                
+                mu_i = np.sum(i * glcm_slice)
+                mu_j = np.sum(j * glcm_slice)
+                std_i = np.sqrt(np.sum((i - mu_i)**2 * glcm_slice))
+                std_j = np.sqrt(np.sum((j - mu_j)**2 * glcm_slice))
+                
+                if std_i > 0 and std_j > 0:
+                    corr = np.sum((i - mu_i) * (j - mu_j) * glcm_slice) / (std_i * std_j)
+                else:
+                    corr = 0
+                correlation_values.append(corr)
+        
+        contrast = np.mean(contrast_values)
+        dissimilarity = np.mean(dissimilarity_values)
+        homogeneity = np.mean(homogeneity_values)
+        energy = np.mean(energy_values)
+        correlation = np.mean(correlation_values)
+        asm_value = np.mean(asm_values)
         
         features = {
-            'contrast': float(contrast),
-            'dissimilarity': float(dissimilarity),
-            'homogeneity': float(homogeneity),
-            'energy': float(energy),
-            'correlation': float(correlation),
-            'asm': float(asm_value)
+            'contrast': float(contrast) if not np.isnan(contrast) and not np.isinf(contrast) else 0.0,
+            'dissimilarity': float(dissimilarity) if not np.isnan(dissimilarity) and not np.isinf(dissimilarity) else 0.0,
+            'homogeneity': float(homogeneity) if not np.isnan(homogeneity) and not np.isinf(homogeneity) else 0.0,
+            'energy': float(energy) if not np.isnan(energy) and not np.isinf(energy) else 0.0,
+            'correlation': float(correlation) if not np.isnan(correlation) and not np.isinf(correlation) else 0.0,
+            'asm': float(asm_value) if not np.isnan(asm_value) and not np.isinf(asm_value) else 0.0
         }
         
-        print(f"GLCM features calculated: {features}")
+        print(f"Enhanced GLCM features calculated: {features}")
         return features
     
     except Exception as e:
-        print(f"Error calculating GLCM features: {str(e)}")
+        print(f"Error calculating enhanced GLCM features: {str(e)}")
         import traceback
         print(traceback.format_exc())
         return None
@@ -118,7 +164,6 @@ def index():
 
     return render_template('views/glcm/index.html', data_citra_list=data_citra_list)
 
-
 @glcm_bp.route('/glcm/ekstraksi')
 def ekstraksi():
     if 'user_id' not in session:
@@ -134,14 +179,13 @@ def ekstraksi():
 
 @glcm_bp.route('/glcm/test')
 def test():
-    """Route untuk test dependencies dan fungsi GLCM"""
     try:
         import cv2
         import numpy as np
         from skimage.feature import graycomatrix, graycoprops
         from skimage import img_as_ubyte
         
-        dummy_image = np.random.randint(0, 256, (256, 256), dtype=np.uint8)
+        dummy_image = np.random.randint(0, 63, (256, 256), dtype=np.uint8)
         features = calculate_glcm_features(dummy_image)
         
         return {
@@ -149,7 +193,7 @@ def test():
             'opencv_version': cv2.__version__,
             'numpy_version': np.__version__,
             'dummy_features': features,
-            'message': 'All dependencies working'
+            'message': 'All enhanced dependencies working'
         }
     except Exception as e:
         import traceback
@@ -161,7 +205,7 @@ def test():
 
 @glcm_bp.route('/glcm/proses-ekstraksi', methods=['POST'])
 def proses_ekstraksi():
-    print("=== PROSES EKSTRAKSI DIMULAI ===")
+    print("=== PROSES EKSTRAKSI ENHANCED DIMULAI ===")
     
     if 'user_id' not in session:
         print("User tidak login, redirect ke login")
@@ -217,7 +261,7 @@ def proses_ekstraksi():
                     print(error_msg)
                     continue
                 
-                print("Loading and preprocessing image...")
+                print("Loading and preprocessing image with enhanced method...")
                 image = load_and_preprocess_image(image_path)
                 if image is None:
                     error_count += 1
@@ -226,11 +270,11 @@ def proses_ekstraksi():
                     print(error_msg)
                     continue
                 
-                print("Image loaded successfully, calculating GLCM features...")
+                print("Image loaded successfully, calculating enhanced GLCM features...")
                 features = calculate_glcm_features(image)
-                print(f"Features calculated: {features}")
+                print(f"Enhanced features calculated: {features}")
                 
-                if features and all(not np.isnan(v) and not np.isinf(v) for v in features.values()):
+                if features and all(not np.isnan(v) and not np.isinf(v) and v >= 0 for v in features.values()):
                     data_citra = DataCitra(
                         id_gambar=int(id_gambar),
                         contrast=features['contrast'],
@@ -244,10 +288,10 @@ def proses_ekstraksi():
                     
                     db.session.add(data_citra)
                     success_count += 1
-                    print(f"SUCCESS: {dataset.nama_file} - Features: {features}")
+                    print(f"SUCCESS: {dataset.nama_file} - Enhanced Features: {features}")
                 else:
                     error_count += 1
-                    error_msg = f"Gagal menghitung fitur GLCM untuk {dataset.nama_file} (nilai tidak valid)"
+                    error_msg = f"Gagal menghitung fitur enhanced GLCM untuk {dataset.nama_file} (nilai tidak valid)"
                     error_messages.append(error_msg)
                     print(error_msg)
             
@@ -259,13 +303,13 @@ def proses_ekstraksi():
                 import traceback
                 print(traceback.format_exc())
         
-        print(f"\n=== HASIL EKSTRAKSI ===")
+        print(f"\n=== HASIL EKSTRAKSI ENHANCED ===")
         print(f"Success: {success_count}, Error: {error_count}")
         
         if success_count > 0:
             db.session.commit()
             print("Database commit berhasil")
-            flash(f'Berhasil mengekstraksi {success_count} gambar', 'success')
+            flash(f'Berhasil mengekstraksi {success_count} gambar dengan metode enhanced', 'success')
         
         if error_count > 0:
             flash(f'Gagal mengekstraksi {error_count} gambar', 'warning')
@@ -289,7 +333,7 @@ def proses_ekstraksi():
 
 @glcm_bp.route('/glcm/ekstraksi-semua', methods=['POST'])
 def ekstraksi_semua():
-    print("=== EKSTRAKSI SEMUA DIMULAI ===")
+    print("=== EKSTRAKSI SEMUA ENHANCED DIMULAI ===")
     
     if 'user_id' not in session:
         flash('Silakan login terlebih dahulu', 'error')
@@ -331,7 +375,7 @@ def ekstraksi_semua():
                 
                 features = calculate_glcm_features(image)
                 
-                if features and all(not np.isnan(v) and not np.isinf(v) for v in features.values()):
+                if features and all(not np.isnan(v) and not np.isinf(v) and v >= 0 for v in features.values()):
                     data_citra = DataCitra(
                         id_gambar=dataset.id_gambar,
                         contrast=features['contrast'],
@@ -348,7 +392,7 @@ def ekstraksi_semua():
                     print(f"SUCCESS: {dataset.nama_file}")
                 else:
                     error_count += 1
-                    error_messages.append(f"Gagal menghitung fitur GLCM untuk {dataset.nama_file}")
+                    error_messages.append(f"Gagal menghitung fitur enhanced GLCM untuk {dataset.nama_file}")
             
             except Exception as e:
                 error_count += 1
@@ -358,7 +402,7 @@ def ekstraksi_semua():
         if success_count > 0:
             db.session.commit()
         
-        flash(f'Ekstraksi selesai. Berhasil: {success_count}, Gagal: {error_count}', 'success')
+        flash(f'Ekstraksi enhanced selesai. Berhasil: {success_count}, Gagal: {error_count}', 'success')
         
         if error_messages:
             for msg in error_messages[:5]:
@@ -368,7 +412,7 @@ def ekstraksi_semua():
     
     except Exception as e:
         db.session.rollback()
-        print(f"Error ekstraksi semua: {str(e)}")
+        print(f"Error ekstraksi semua enhanced: {str(e)}")
         flash(f'Terjadi error: {str(e)}', 'error')
         return redirect(url_for('glcm.ekstraksi'))
 
@@ -441,7 +485,7 @@ def export_csv():
         
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'text/csv'
-        response.headers['Content-Disposition'] = f'attachment; filename=glcm_features_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=enhanced_glcm_features_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         
         return response
     

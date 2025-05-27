@@ -7,9 +7,15 @@ from app.models.SplitDataModel import SplitData
 from app.models.LDAModel import HasilKlasifikasi
 from sqlalchemy import func, desc, asc
 import numpy as np
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.decomposition import PCA
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.ensemble import VotingClassifier
+from sklearn.pipeline import Pipeline
+from scipy import stats
 import joblib
 import os
 import csv
@@ -23,12 +29,10 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, '..', 'models', 'saved_models')
 
 def simple_log(message):
-    """Logging sederhana untuk debug"""
-    print(f"[LDA DEBUG] {message}")
+    print(f"[LDA ULTRA] {message}")
     sys.stdout.flush()
 
 def fix_image_path(path_file):
-    """Perbaiki path gambar"""
     if not path_file:
         return 'img/no-image.png'
     image_path = path_file.replace('\\', '/')
@@ -44,7 +48,6 @@ def fix_image_path(path_file):
     return image_path
 
 def get_pagination_info(page, per_page, total):
-    """Informasi pagination"""
     total_pages = (total + per_page - 1) // per_page
     has_prev = page > 1
     has_next = page < total_pages
@@ -62,10 +65,36 @@ def get_pagination_info(page, per_page, total):
         'next_num': next_num
     }
 
+def create_smart_features(contrast, dissimilarity, homogeneity, energy, correlation, asm):
+    eps = 1e-8
+    
+    contrast = max(contrast, eps)
+    dissimilarity = max(dissimilarity, eps) 
+    homogeneity = max(homogeneity, eps)
+    energy = max(energy, eps)
+    asm = max(asm, eps)
+    
+    features = []
+    
+    features.append(contrast)
+    features.append(dissimilarity)
+    features.append(homogeneity)
+    features.append(energy)
+    features.append(correlation)
+    features.append(asm)
+    
+    features.append(contrast / energy)
+    features.append(homogeneity / dissimilarity)
+    features.append(energy / asm if asm > eps else 1.0)
+    features.append(contrast * homogeneity)
+    features.append(np.sqrt(energy * asm))
+    features.append(abs(correlation) * energy)
+    
+    return features
+
 def prepare_training_data():
-    """Persiapan data training - DIPERBAIKI"""
     try:
-        simple_log("=== MULAI PERSIAPAN DATA TRAINING ===")
+        simple_log("=== MULAI PERSIAPAN DATA TRAINING ULTRA ===")
 
         train_data = db.session.query(
             SplitData.id_data_citra,
@@ -95,25 +124,49 @@ def prepare_training_data():
         labels = []
         
         for row in train_data:
-            feature_values = [
-                float(row.contrast or 0),
-                float(row.dissimilarity or 0),
-                float(row.homogeneity or 0),
-                float(row.energy or 0),
-                float(row.correlation or 0),
-                float(row.asm or 0)
-            ]
+            contrast = float(row.contrast or 0)
+            dissimilarity = float(row.dissimilarity or 0)
+            homogeneity = float(row.homogeneity or 0)
+            energy = float(row.energy or 0)
+            correlation = float(row.correlation or 0)
+            asm = float(row.asm or 0)
+            
+            feature_values = create_smart_features(
+                contrast, dissimilarity, homogeneity, 
+                energy, correlation, asm
+            )
             
             features.append(feature_values)
             labels.append(row.nama_kategori)
-            
-            simple_log(f"Data {len(features)}: {row.nama_kategori} - Features: {feature_values}")
         
         X = np.array(features)
         y = np.array(labels)
-        unique_labels = list(set(labels))
         
-        simple_log(f"Training data shape: {X.shape}")
+        simple_log(f"Initial features shape: {X.shape}")
+        
+        means = np.mean(X, axis=0)
+        stds = np.std(X, axis=0)
+        simple_log(f"Mean per fitur: {means}")
+        simple_log(f"Std dev per fitur: {stds}")
+
+        z_scores = np.abs(stats.zscore(X, axis=0, nan_policy='omit'))
+        outlier_mask = (z_scores < 2.5).all(axis=1)
+        
+        if np.sum(outlier_mask) == 0:
+            simple_log("PERINGATAN: Semua data dianggap outlier. Menggunakan semua data tanpa filter.")
+            outlier_mask = np.ones(len(X), dtype=bool)
+        
+        X = X[outlier_mask]
+        y = y[outlier_mask]
+        
+        simple_log(f"After outlier removal: {X.shape}")
+        
+        if np.any(np.isnan(X)) or np.any(np.isinf(X)):
+            X = np.nan_to_num(X, nan=0.0, posinf=1.0, neginf=0.0)
+        
+        unique_labels = list(set(y))
+        
+        simple_log(f"Ultra Training data shape: {X.shape}")
         simple_log(f"Unique labels: {unique_labels}")
         simple_log(f"Label counts: {np.unique(y, return_counts=True)}")
         
@@ -121,14 +174,15 @@ def prepare_training_data():
         
     except Exception as e:
         simple_log(f"ERROR dalam prepare_training_data: {str(e)}")
+        import traceback
+        simple_log(traceback.format_exc())
         return None, None, None
 
+
 def prepare_test_data():
-    """Persiapan data testing - DIPERBAIKI"""
     try:
-        simple_log("=== MULAI PERSIAPAN DATA TESTING ===")
+        simple_log("=== MULAI PERSIAPAN DATA TESTING ULTRA ===")
         
-        # Query yang lebih sederhana
         test_data = db.session.query(
             SplitData.id_data_citra,
             SplitData.id_kategori,
@@ -158,15 +212,18 @@ def prepare_test_data():
         data_ids = []
         
         for row in test_data:
-            feature_values = [
-                float(row.contrast or 0),
-                float(row.dissimilarity or 0),
-                float(row.homogeneity or 0),
-                float(row.energy or 0),
-                float(row.correlation or 0),
-                float(row.asm or 0)
-            ]
+            contrast = float(row.contrast or 0)
+            dissimilarity = float(row.dissimilarity or 0)
+            homogeneity = float(row.homogeneity or 0)
+            energy = float(row.energy or 0)
+            correlation = float(row.correlation or 0)
+            asm = float(row.asm or 0)
             
+            features.append([
+                float(contrast), float(dissimilarity), float(homogeneity),
+                float(energy), float(correlation), float(asm)
+        ])
+
             features.append(feature_values)
             labels.append(row.nama_kategori)
             data_ids.append(row.id_data_citra)
@@ -174,7 +231,10 @@ def prepare_test_data():
         X = np.array(features)
         y = np.array(labels)
         
-        simple_log(f"Test data shape: {X.shape}")
+        if np.any(np.isnan(X)) or np.any(np.isinf(X)):
+            X = np.nan_to_num(X, nan=0.0, posinf=1.0, neginf=0.0)
+        
+        simple_log(f"Ultra Test data shape: {X.shape}")
         
         return X, y, data_ids, None
         
@@ -183,7 +243,6 @@ def prepare_test_data():
         return None, None, None, None
 
 def get_lda_statistics():
-    """Statistik LDA"""
     try:
         total_klasifikasi = HasilKlasifikasi.query.count()
         train_count = db.session.query(SplitData).filter_by(jenis_split='train').count()
@@ -222,7 +281,6 @@ def get_lda_statistics():
 
 @lda_bp.route('/')
 def index():
-    """Halaman utama LDA"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -291,7 +349,6 @@ def index():
 
 @lda_bp.route('/train')
 def train():
-    """Halaman training"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -300,14 +357,13 @@ def train():
 
 @lda_bp.route('/process_train', methods=['POST'])
 def process_train():
-    """PROSES TRAINING - DIPERBAIKI TOTAL"""
     if 'user_id' not in session:
         flash('Silakan login terlebih dahulu', 'error')
         return redirect(url_for('auth.login'))
     
     try:
         simple_log("========================================")
-        simple_log("=== MULAI PROSES TRAINING LDA ===")
+        simple_log("=== MULAI PROSES TRAINING LDA ULTRA ===")
         simple_log("========================================")
 
         simple_log("STEP 1: Mengecek data training...")
@@ -327,72 +383,148 @@ def process_train():
             simple_log("ERROR: Minimal 2 kategori diperlukan untuk LDA")
             flash('Minimal 2 kategori diperlukan untuk training LDA', 'error')
             return redirect(url_for('lda.train'))
-
-        if np.any(np.isnan(X_train)) or np.any(np.isinf(X_train)):
-            simple_log("WARNING: Data mengandung NaN atau Inf, akan dibersihkan")
-            X_train = np.nan_to_num(X_train, nan=0.0, posinf=1.0, neginf=0.0)
         
         simple_log("Data valid untuk training")
         
-        simple_log("STEP 3: Normalisasi data...")
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        simple_log(f"Data berhasil dinormalisasi: {X_train_scaled.shape}")
+        simple_log("STEP 3: Ultra preprocessing pipeline...")
         
-        simple_log("STEP 4: Encoding labels...")
+        robust_scaler = RobustScaler()
+        X_robust = robust_scaler.fit_transform(X_train)
+        
+        standard_scaler = StandardScaler()
+        X_scaled = standard_scaler.fit_transform(X_robust)
+        
+        simple_log(f"Data preprocessing selesai: {X_scaled.shape}")
+        
+        simple_log("STEP 4: PCA untuk dimensionality reduction...")
+        pca = PCA(n_components=0.95, random_state=42)
+        X_pca = pca.fit_transform(X_scaled)
+        simple_log(f"PCA shape: {X_pca.shape}, explained variance: {pca.explained_variance_ratio_.sum():.4f}")
+        
+        simple_log("STEP 5: Feature selection...")
+        n_features = min(8, X_pca.shape[1])
+        selector = SelectKBest(score_func=f_classif, k=n_features)
+        X_selected = selector.fit_transform(X_pca, y_train)
+        simple_log(f"Feature selection selesai: {X_selected.shape}")
+        
+        simple_log("STEP 6: Encoding labels...")
         label_encoder = LabelEncoder()
         y_train_encoded = label_encoder.fit_transform(y_train)
         simple_log(f"Labels encoded: {label_encoder.classes_}")
 
-        simple_log("STEP 5: Training model LDA...")
-        lda_model = LinearDiscriminantAnalysis()
-        lda_model.fit(X_train_scaled, y_train_encoded)
-        simple_log("Model LDA berhasil dilatih!")
+        simple_log("STEP 7: Ultra LDA training dengan ensemble...")
+        
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        
+        lda_models = []
+        best_lda = None
+        best_score = 0
+        
+        shrinkage_values = [None, 'auto', 0.1, 0.3, 0.5, 0.7]
+        
+        for shrinkage in shrinkage_values:
+            try:
+                if shrinkage is None:
+                    lda = LinearDiscriminantAnalysis(solver='svd')
+                else:
+                    lda = LinearDiscriminantAnalysis(solver='lsqr', shrinkage=shrinkage)
+                
+                cv_scores = cross_val_score(lda, X_selected, y_train_encoded, cv=cv, scoring='accuracy')
+                avg_score = np.mean(cv_scores)
+                
+                simple_log(f"LDA shrinkage {shrinkage}: CV = {avg_score:.4f} ± {np.std(cv_scores):.4f}")
+                
+                if avg_score > best_score:
+                    best_score = avg_score
+                    best_lda = lda
+                    
+            except Exception as e:
+                simple_log(f"Error dengan shrinkage {shrinkage}: {str(e)}")
+                continue
+        
+        if best_lda is None:
+            best_lda = LinearDiscriminantAnalysis(solver='svd')
+        
+        best_lda.fit(X_selected, y_train_encoded)
+        simple_log(f"Best LDA trained dengan CV score: {best_score:.4f}")
+        
+        simple_log("STEP 8: Training QDA sebagai backup...")
+        try:
+            qda = QuadraticDiscriminantAnalysis()
+            qda_scores = cross_val_score(qda, X_selected, y_train_encoded, cv=cv, scoring='accuracy')
+            qda_score = np.mean(qda_scores)
+            simple_log(f"QDA CV score: {qda_score:.4f}")
+            qda.fit(X_selected, y_train_encoded)
+        except Exception as e:
+            simple_log(f"QDA failed: {str(e)}")
+            qda = None
+            qda_score = 0
 
-        simple_log("STEP 6: Evaluasi model...")
-        y_train_pred = lda_model.predict(X_train_scaled)
+        simple_log("STEP 9: Final model selection...")
+        if qda is not None and qda_score > best_score:
+            final_model = qda
+            final_score = qda_score
+            model_type = 'QDA'
+            simple_log("QDA selected as final model")
+        else:
+            final_model = best_lda
+            final_score = best_score
+            model_type = 'LDA'
+            simple_log("LDA selected as final model")
+
+        simple_log("STEP 10: Evaluasi model final...")
+        y_train_pred = final_model.predict(X_selected)
         train_accuracy = accuracy_score(y_train_encoded, y_train_pred)
         simple_log(f"Training accuracy: {train_accuracy:.4f}")
         
-        simple_log("STEP 7: Menyimpan model...")
+        simple_log("STEP 11: Menyimpan ultra model...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         
         model_data = {
-            'lda_model': lda_model,
-            'scaler': scaler,
+            'model': final_model,
+            'model_type': model_type,
+            'robust_scaler': robust_scaler,
+            'standard_scaler': standard_scaler,
+            'pca': pca,
+            'selector': selector,
             'label_encoder': label_encoder,
             'feature_names': ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'asm'],
             'class_names': label_names,
             'training_accuracy': train_accuracy,
-            'trained_at': datetime.now()
+            'cv_accuracy': final_score,
+            'pca_components': X_pca.shape[1],
+            'selected_features': X_selected.shape[1],
+            'trained_at': datetime.now(),
+            'model_version': 'ultra_v4'
         }
         
         model_path = os.path.join(MODEL_DIR, 'lda_model.pkl')
         joblib.dump(model_data, model_path)
-        simple_log(f"Model disimpan di: {model_path}")
+        simple_log(f"Ultra model disimpan di: {model_path}")
         
         simple_log("========================================")
-        simple_log("=== TRAINING BERHASIL SELESAI! ===")
+        simple_log("=== ULTRA TRAINING BERHASIL SELESAI! ===")
         simple_log("========================================")
         
-        flash(f'Training berhasil! Model LDA telah dilatih dengan akurasi: {train_accuracy:.4f} ({train_accuracy*100:.2f}%)', 'success')
+        flash(f'Ultra {model_type} Training berhasil! Model telah dilatih dengan akurasi: {train_accuracy:.4f} ({train_accuracy*100:.2f}%)', 'success')
         return redirect(url_for('lda.train'))
         
     except Exception as e:
         simple_log(f"========================================")
-        simple_log(f"=== ERROR DALAM TRAINING: {str(e)} ===")
+        simple_log(f"=== ERROR DALAM ULTRA TRAINING: {str(e)} ===")
         simple_log("========================================")
+        import traceback
+        simple_log(traceback.format_exc())
         flash(f'Error dalam training: {str(e)}', 'error')
         return redirect(url_for('lda.train'))
 
 @lda_bp.route('/predict', methods=['POST'])
 def predict():
-    """Prediksi menggunakan model"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
     try:
-        simple_log("=== MULAI PREDIKSI ===")
+        simple_log("=== MULAI ULTRA PREDIKSI ===")
         
         model_path = os.path.join(MODEL_DIR, 'lda_model.pkl')
         
@@ -401,10 +533,14 @@ def predict():
             flash('Model belum dilatih. Silakan lakukan training terlebih dahulu.', 'error')
             return redirect(url_for('lda.train'))
         
-        simple_log("Loading model...")
+        simple_log("Loading ultra model...")
         model_data = joblib.load(model_path)
-        lda_model = model_data['lda_model']
-        scaler = model_data['scaler']
+        model = model_data['model']
+        model_type = model_data['model_type']
+        robust_scaler = model_data['robust_scaler']
+        standard_scaler = model_data['standard_scaler']
+        pca = model_data['pca']
+        selector = model_data['selector']
         label_encoder = model_data['label_encoder']
         
         X_test, y_test, data_ids, _ = prepare_test_data()
@@ -414,13 +550,17 @@ def predict():
             flash('Tidak ada data test. Silakan lakukan split data terlebih dahulu.', 'error')
             return redirect(url_for('lda.index'))
         
-        simple_log("Melakukan prediksi...")
-        X_test_scaled = scaler.transform(X_test)
-        y_pred_encoded = lda_model.predict(X_test_scaled)
-        y_pred_proba = lda_model.predict_proba(X_test_scaled)
+        simple_log("Melakukan ultra preprocessing dan prediksi...")
+        X_test_robust = robust_scaler.transform(X_test)
+        X_test_scaled = standard_scaler.transform(X_test_robust)
+        X_test_pca = pca.transform(X_test_scaled)
+        X_test_selected = selector.transform(X_test_pca)
+        
+        y_pred_encoded = model.predict(X_test_selected)
+        y_pred_proba = model.predict_proba(X_test_selected)
         y_pred = label_encoder.inverse_transform(y_pred_encoded)
         
-        simple_log("Menyimpan hasil prediksi...")
+        simple_log("Menyimpan hasil ultra prediksi...")
         HasilKlasifikasi.query.delete()
         
         success_count = 0
@@ -443,20 +583,19 @@ def predict():
         y_test_encoded = label_encoder.transform(y_test)
         test_accuracy = accuracy_score(y_test_encoded, y_pred_encoded)
         
-        simple_log(f"=== PREDIKSI SELESAI ===")
-        simple_log(f"Berhasil: {success_count}, Akurasi: {test_accuracy:.4f}")
+        simple_log(f"=== ULTRA PREDIKSI SELESAI ===")
+        simple_log(f"Model: {model_type}, Berhasil: {success_count}, Akurasi: {test_accuracy:.4f}")
         
-        flash(f'Prediksi berhasil! {success_count} hasil disimpan dengan akurasi: {test_accuracy:.4f} ({test_accuracy*100:.2f}%)', 'success')
+        flash(f'Ultra {model_type} Prediksi berhasil! {success_count} hasil disimpan dengan akurasi: {test_accuracy:.4f} ({test_accuracy*100:.2f}%)', 'success')
         return redirect(url_for('lda.index'))
         
     except Exception as e:
-        simple_log(f"ERROR dalam prediksi: {str(e)}")
+        simple_log(f"ERROR dalam ultra prediksi: {str(e)}")
         flash(f'Error dalam prediksi: {str(e)}', 'error')
         return redirect(url_for('lda.index'))
 
 @lda_bp.route('/evaluate')
 def evaluate():
-    """Evaluasi model"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -468,8 +607,12 @@ def evaluate():
             return redirect(url_for('lda.train'))
         
         model_data = joblib.load(model_path)
-        lda_model = model_data['lda_model']
-        scaler = model_data['scaler']
+        model = model_data['model']
+        model_type = model_data['model_type']
+        robust_scaler = model_data['robust_scaler']
+        standard_scaler = model_data['standard_scaler']
+        pca = model_data['pca']
+        selector = model_data['selector']
         label_encoder = model_data['label_encoder']
         
         X_test, y_test, data_ids, _ = prepare_test_data()
@@ -478,8 +621,12 @@ def evaluate():
             flash('Tidak ada data test', 'error')
             return redirect(url_for('lda.index'))
         
-        X_test_scaled = scaler.transform(X_test)
-        y_pred_encoded = lda_model.predict(X_test_scaled)
+        X_test_robust = robust_scaler.transform(X_test)
+        X_test_scaled = standard_scaler.transform(X_test_robust)
+        X_test_pca = pca.transform(X_test_scaled)
+        X_test_selected = selector.transform(X_test_pca)
+        
+        y_pred_encoded = model.predict(X_test_selected)
         y_test_encoded = label_encoder.transform(y_test)
         
         accuracy = accuracy_score(y_test_encoded, y_pred_encoded)
@@ -492,7 +639,15 @@ def evaluate():
             'accuracy': accuracy,
             'classification_report': report,
             'confusion_matrix': conf_matrix.tolist(),
-            'class_names': label_encoder.classes_.tolist()
+            'class_names': label_encoder.classes_.tolist(),
+            'model_info': {
+                'model_type': model_type,
+                'training_accuracy': model_data.get('training_accuracy', 0),
+                'cv_accuracy': model_data.get('cv_accuracy', 0),
+                'pca_components': model_data.get('pca_components', 0),
+                'selected_features': model_data.get('selected_features', 0),
+                'model_version': model_data.get('model_version', 'unknown')
+            }
         }
         
         return render_template('views/lda/evaluate.html', 
@@ -505,7 +660,6 @@ def evaluate():
 
 @lda_bp.route('/detail/<int:id>')
 def detail(id):
-    """Detail hasil klasifikasi"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -530,7 +684,6 @@ def detail(id):
 
 @lda_bp.route('/hapus/<int:id>')
 def hapus(id):
-    """Hapus hasil klasifikasi"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -543,7 +696,6 @@ def hapus(id):
 
 @lda_bp.route('/reset', methods=['POST'])
 def reset():
-    """Reset semua hasil dan model"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -560,7 +712,6 @@ def reset():
 
 @lda_bp.route('/export_csv')
 def export_csv():
-    """Export hasil ke CSV"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     
@@ -592,7 +743,7 @@ def export_csv():
     
     output.seek(0)
     
-    filename = f'hasil_lda_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    filename = f'hasil_lda_ultra_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     
     response = make_response(output.getvalue())
     response.headers['Content-Type'] = 'text/csv'
@@ -602,7 +753,6 @@ def export_csv():
 
 @lda_bp.route('/api/stats')
 def api_stats():
-    """API statistik"""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
@@ -611,7 +761,6 @@ def api_stats():
 
 @lda_bp.route('/test')
 def test():
-    """Test endpoint untuk debugging"""
     try:
         train_count = db.session.query(SplitData).filter_by(jenis_split='train').count()
         test_count = db.session.query(SplitData).filter_by(jenis_split='test').count()
@@ -621,16 +770,28 @@ def test():
         X_train, y_train, labels = prepare_training_data()
         train_ready = X_train is not None
         
+        feature_info = {}
+        if X_train is not None:
+            feature_info = {
+                'n_samples': X_train.shape[0],
+                'n_features': X_train.shape[1], 
+                'n_classes': len(labels) if labels else 0,
+                'class_distribution': dict(zip(*np.unique(y_train, return_counts=True))) if y_train is not None else {}
+            }
+        
         return jsonify({
             'train_count': train_count,
             'test_count': test_count,
             'hasil_count': hasil_count,
             'model_exists': model_exists,
             'train_ready': train_ready,
-            'message': 'LDA test successful'
+            'feature_info': feature_info,
+            'message': 'Ultra LDA test successful'
         })
     except Exception as e:
+        import traceback
         return jsonify({
             'error': str(e),
-            'message': 'LDA test failed'
+            'traceback': traceback.format_exc(),
+            'message': 'Ultra LDA test failed'
         })

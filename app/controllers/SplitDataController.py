@@ -38,7 +38,27 @@ def get_split_statistics():
         total_glcm = DataCitra.query.count()
         total_unsplit = total_glcm - total_split
         
-        print(f"DEBUG STATS: split={total_split}, train={total_train}, test={total_test}, glcm={total_glcm}, unsplit={total_unsplit}")
+        kategori_train_stats = db.session.query(
+            KategoriPenyakit.nama_kategori,
+            func.count(SplitData.id_split).label('count')
+        ).join(
+            SplitData, KategoriPenyakit.id_kategori == SplitData.id_kategori
+        ).filter(
+            SplitData.jenis_split == 'train'
+        ).group_by(
+            KategoriPenyakit.nama_kategori
+        ).all()
+        
+        kategori_test_stats = db.session.query(
+            KategoriPenyakit.nama_kategori,
+            func.count(SplitData.id_split).label('count')
+        ).join(
+            SplitData, KategoriPenyakit.id_kategori == SplitData.id_kategori
+        ).filter(
+            SplitData.jenis_split == 'test'
+        ).group_by(
+            KategoriPenyakit.nama_kategori
+        ).all()
         
         return {
             'total_split': total_split,
@@ -46,19 +66,20 @@ def get_split_statistics():
             'total_test': total_test,
             'total_unsplit': total_unsplit,
             'total_glcm': total_glcm,
-            'kategori_stats': []
+            'kategori_train_stats': kategori_train_stats,
+            'kategori_test_stats': kategori_test_stats
         }
     except Exception as e:
-        print(f"ERROR in get_split_statistics: {e}")
         return {
             'total_split': 0,
             'total_train': 0,
             'total_test': 0,
             'total_unsplit': 0,
             'total_glcm': 0,
-            'kategori_stats': []
+            'kategori_train_stats': [],
+            'kategori_test_stats': []
         }
-    
+
 @split_bp.route('/')
 def index():
     if 'user_id' not in session:
@@ -181,20 +202,7 @@ def process():
         return redirect(url_for('auth.login'))
     
     try:
-        split_method = request.form.get('split_method', 'percentage')
-        train_percentage = float(request.form.get('train_percentage', 80))
-        
-        if split_method == 'percentage':
-            result = process_percentage_split(train_percentage)
-        elif split_method == 'manual':
-            selected_train = request.form.getlist('train_data')
-            selected_test = request.form.getlist('test_data')
-            result = process_manual_split(selected_train, selected_test)
-        elif split_method == 'stratified':
-            result = process_stratified_split(train_percentage)
-        else:
-            flash('Metode split tidak valid', 'error')
-            return redirect(url_for('split.create'))
+        result = process_stratified_split_80_20()
         
         if result['success']:
             flash(f"Split data berhasil! Train: {result['train_count']}, Test: {result['test_count']}", 'success')
@@ -208,57 +216,7 @@ def process():
         flash(f'Terjadi error: {str(e)}', 'error')
         return redirect(url_for('split.create'))
 
-def process_percentage_split(train_percentage):
-    try:
-        available_data = db.session.query(DataCitra, DatasetGambar).join(
-            DatasetGambar, DataCitra.id_gambar == DatasetGambar.id_gambar
-        ).filter(
-            ~DataCitra.id_data_citra.in_(
-                db.session.query(SplitData.id_data_citra)
-            )
-        ).all()
-        
-        if not available_data:
-            return {'success': False, 'message': 'Tidak ada data yang tersedia untuk di-split'}
-        
-        data_list = list(available_data)
-        random.shuffle(data_list)
-        
-        total_data = len(data_list)
-        train_count = int(total_data * train_percentage / 100)
-        
-        train_data = data_list[:train_count]
-        test_data = data_list[train_count:]
-        
-        for data_citra, dataset in train_data:
-            split_data = SplitData(
-                id_data_citra=data_citra.id_data_citra,
-                id_kategori=dataset.id_kategori,
-                jenis_split='train'
-            )
-            db.session.add(split_data)
-        
-        for data_citra, dataset in test_data:
-            split_data = SplitData(
-                id_data_citra=data_citra.id_data_citra,
-                id_kategori=dataset.id_kategori,
-                jenis_split='test'
-            )
-            db.session.add(split_data)
-        
-        db.session.commit()
-        
-        return {
-            'success': True,
-            'train_count': len(train_data),
-            'test_count': len(test_data)
-        }
-    
-    except Exception as e:
-        db.session.rollback()
-        return {'success': False, 'message': str(e)}
-
-def process_stratified_split(train_percentage):
+def process_stratified_split_80_20():
     try:
         kategori_data = db.session.query(
             KategoriPenyakit.id_kategori,
@@ -285,7 +243,7 @@ def process_stratified_split(train_percentage):
             random.shuffle(kategori_list)
             
             kategori_total = len(kategori_list)
-            kategori_train_count = int(kategori_total * train_percentage / 100)
+            kategori_train_count = int(kategori_total * 0.8)
             
             train_data = kategori_list[:kategori_train_count]
             test_data = kategori_list[kategori_train_count:]
@@ -314,51 +272,6 @@ def process_stratified_split(train_percentage):
             'success': True,
             'train_count': total_train,
             'test_count': total_test
-        }
-    
-    except Exception as e:
-        db.session.rollback()
-        return {'success': False, 'message': str(e)}
-
-def process_manual_split(selected_train, selected_test):
-    try:
-        if not selected_train and not selected_test:
-            return {'success': False, 'message': 'Pilih minimal satu data untuk train atau test'}
-        
-        train_set = set(selected_train)
-        test_set = set(selected_test)
-        
-        if train_set & test_set:
-            return {'success': False, 'message': 'Ada data yang dipilih untuk train dan test sekaligus'}
-        
-        for id_data_citra in selected_train:
-            data_citra = DataCitra.query.get(id_data_citra)
-            if data_citra:
-                dataset = DatasetGambar.query.get(data_citra.id_gambar)
-                split_data = SplitData(
-                    id_data_citra=int(id_data_citra),
-                    id_kategori=dataset.id_kategori,
-                    jenis_split='train'
-                )
-                db.session.add(split_data)
-        
-        for id_data_citra in selected_test:
-            data_citra = DataCitra.query.get(id_data_citra)
-            if data_citra:
-                dataset = DatasetGambar.query.get(data_citra.id_gambar)
-                split_data = SplitData(
-                    id_data_citra=int(id_data_citra),
-                    id_kategori=dataset.id_kategori,
-                    jenis_split='test'
-                )
-                db.session.add(split_data)
-        
-        db.session.commit()
-        
-        return {
-            'success': True,
-            'train_count': len(selected_train),
-            'test_count': len(selected_test)
         }
     
     except Exception as e:
